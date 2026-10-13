@@ -1,0 +1,105 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    font-family: 'Tajawal', 'Cairo', system-ui, -apple-system, sans-serif;
+    background-color: #fbfbf9;
+    color: #292524;
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+@media print {
+  /* Global reset: ensure document height expands naturally and overflow is visible */
+  html,
+  body,
+  #root {
+    height: auto !important;
+    min-height: 100% !important;
+    overflow: visible !important;
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Force exact background colors, graphics, and borders in modern browsers */
+  *,
+  *::before,
+  *::after {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Explicit print display helpers */
+  .print\:hidden {
+    display: none !important;
+  }
+
+  .print\:block {
+    display: block !important;
+  }
+
+  .print\:flex {
+    display: flex !important;
+  }
+
+  .print\:visible {
+    visibility: visible !important;
+  }
+
+  .print\:text-black {
+    color: #000000 !important;
+  }
+
+  .print\:bg-white {
+    background-color: #ffffff !important;
+  }
+
+  .print\:overflow-visible {
+    overflow: visible !important;
+  }
+
+  .print\:h-auto {
+    height: auto !important;
+  }
+
+  .print\:min-h-full {
+    min-height: 100% !important;
+  }
+
+  .print\:break-inside-avoid {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+  }
+
+  thead {
+    display: table-header-group !important;
+  }
+
+  tr {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* When printing an invoice receipt modal specifically */
+  body:has(#printable-receipt) *:not(#printable-receipt, #printable-receipt *) {
+    display: none !important;
+  }
+
+  body:has(#printable-receipt) #printable-receipt {
+    display: block !important;
+    position: static !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 20px !important;
+    background: #ffffff !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+}
