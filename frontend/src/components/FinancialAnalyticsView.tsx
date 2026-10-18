@@ -94,7 +94,7 @@ export const FinancialAnalyticsView: React.FC = () => {
       if (startDate) params.append('startDate', startDate);
       if (endDate) params.append('endDate', endDate);
 
-      const res = await fetch(`/api/reports/financial?${params.toString()}`);
+      const res = await fetch(`/api/reports/financial?${params.toString()}`, { cache: 'no-store' });
       if (res.ok) {
         const result = await res.json();
         setData(result);

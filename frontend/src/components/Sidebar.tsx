@@ -5,11 +5,13 @@ import {
   Sparkles, 
   Users, 
   Package,
+  PackageMinus,
   Calculator,
   Stethoscope,
   X,
   Flower2,
   Receipt,
+  TrendingUp,
   BarChart3,
   LogOut,
   ShieldCheck,
@@ -24,6 +26,8 @@ export type TabType =
   | 'services' 
   | 'clients' 
   | 'inventory' 
+  | 'dispatches'
+  | 'revenues'
   | 'expenses'
   | 'staff-management' 
   | 'staff-reports'
@@ -35,6 +39,7 @@ interface SidebarProps {
   setCurrentTab: (tab: TabType) => void;
   isOpen: boolean;
   setIsOpen: (open: boolean) => void;
+  appointmentsCount?: number;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -42,6 +47,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   setCurrentTab,
   isOpen,
   setIsOpen,
+  appointmentsCount,
 }) => {
   const { user, logout, hasAccessToTab, isAdmin } = useAuth();
 
@@ -55,7 +61,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       id: 'appointments' as TabType,
       label: 'الحجوزات',
       icon: Calendar,
-      badge: '4',
+      badge: appointmentsCount !== undefined ? appointmentsCount.toString() : undefined,
     },
     {
       id: 'services' as TabType,
@@ -72,6 +78,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
       id: 'inventory' as TabType,
       label: 'المخزون',
       icon: Package,
+    },
+    {
+      id: 'dispatches' as TabType,
+      label: 'صرف مستهلكات',
+      icon: PackageMinus,
+    },
+    {
+      id: 'revenues' as TabType,
+      label: 'الإيرادات',
+      icon: TrendingUp,
     },
     {
       id: 'expenses' as TabType,

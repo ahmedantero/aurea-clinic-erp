@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   X, 
   Receipt, 
@@ -49,6 +49,58 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   // 4. Submission & Generated Receipt State
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [generatedReceipt, setGeneratedReceipt] = useState<GeneratedInvoice | null>(null);
+
+  // Explicitly reset ALL states (addons, discount, payment method, generated receipt)
+  const resetAllStates = () => {
+    setSelectedInventoryId('');
+    setAddonQuantity(1);
+    setChargeToClient(true);
+    setInvoiceItems([]);
+    setDiscountType('amount');
+    setDiscountValue(0);
+    setPaymentMethod('كاش');
+    setIsSubmitting(false);
+    setGeneratedReceipt(null);
+  };
+
+  const handleFinishAndClose = () => {
+    resetAllStates();
+    if (typeof window !== 'undefined' && window.history?.replaceState) {
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+    onClose();
+  };
+
+  const handleClose = () => {
+    handleFinishAndClose();
+  };
+
+  // Whenever modal opens or selected appointment changes, reset all states fresh
+  useEffect(() => {
+    if (isOpen) {
+      resetAllStates();
+      // Defensive guard: If the appointment is completed, show read-only receipt view directly
+      if (appointment?.status === 'مكتمل') {
+        setGeneratedReceipt(
+          appointment.invoice || {
+            invoiceId: appointment.id,
+            invoiceNumber: `INV-${appointment.id.slice(0, 8).toUpperCase()}`,
+            appointmentId: appointment.id,
+            clientName: appointment.clientName,
+            clientPhone: appointment.clientPhone,
+            serviceName: appointment.serviceName,
+            basePrice: appointment.finalPrice,
+            totalAmount: appointment.finalPrice,
+            discountApplied: 0,
+            netAmount: appointment.finalPrice,
+            paymentMethod: 'كاش',
+            createdAt: appointment.appointmentDate || new Date().toISOString(),
+            items: [],
+          }
+        );
+      }
+    }
+  }, [isOpen, appointment?.id, appointment?.status]);
 
   if (!isOpen || !appointment) return null;
 
@@ -109,11 +161,13 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
   // Confirm & Generate Invoice
   const handleConfirmInvoice = async () => {
+    if (isSubmitting) return;
     setIsSubmitting(true);
     try {
       const response = await fetch('/api/invoices', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
         body: JSON.stringify({
           appointmentId: appointment.id,
           totalAmount: grossTotal,
@@ -135,6 +189,11 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         basePrice,
         items: invoiceItems,
       };
+
+      // Clean browser history state to prevent reload resubmission prompts
+      if (typeof window !== 'undefined' && window.history?.replaceState) {
+        window.history.replaceState(null, '', window.location.pathname);
+      }
 
       setGeneratedReceipt(fullInvoice);
       onInvoiceCreated(fullInvoice);
@@ -168,7 +227,10 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/40 backdrop-blur-xs">
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/40 backdrop-blur-xs"
+      onClick={handleClose}
+    >
       <div 
         className="w-full max-w-xl bg-white rounded-3xl shadow-2xl border border-stone-200 overflow-hidden animate-in fade-in zoom-in-95 duration-200 max-h-[94vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
@@ -283,18 +345,21 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             </div>
 
             {/* Receipt Modal Actions (Hidden during print) */}
-            <div className="w-full flex items-center justify-between gap-3 pt-2 print:hidden">
+            <div className="w-full flex flex-col sm:flex-row items-center justify-between gap-2.5 pt-2 print:hidden">
               <button
-                onClick={onClose}
-                className="flex-1 py-2.5 rounded-xl border border-stone-200 text-stone-600 hover:bg-stone-50 text-xs font-semibold transition-colors cursor-pointer"
+                type="button"
+                onClick={handleFinishAndClose}
+                className="w-full sm:flex-1 py-2.5 px-4 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
               >
-                إغلاق والعودة للجدول
+                <CheckCircle2 className="w-4 h-4 text-emerald-200" />
+                <span>إنهاء وإغلاق الفاتورة (Finish)</span>
               </button>
               <button
+                type="button"
                 onClick={handlePrint}
-                className="flex-1 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                className="w-full sm:flex-1 py-2.5 px-4 rounded-xl border border-stone-200 bg-white hover:bg-stone-50 text-stone-700 text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
               >
-                <Printer className="w-4 h-4" />
+                <Printer className="w-4 h-4 text-stone-600" />
                 <span>طباعة الفاتورة (Print)</span>
               </button>
             </div>
@@ -314,7 +379,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 </div>
               </div>
               <button
-                onClick={onClose}
+                onClick={handleClose}
                 className="p-1.5 rounded-xl text-stone-400 hover:text-stone-700 hover:bg-stone-200/50 transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
@@ -616,15 +681,26 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   <span className="text-emerald-800 text-xl font-black">{netAmount} ج.م</span>
                 </div>
               </div>
+
+              {/* Doctor Commission Notice Card */}
+              <div className="p-3 rounded-2xl bg-amber-50/80 border border-amber-200/70 text-xs text-amber-900 space-y-1">
+                <div className="flex items-center gap-1.5 font-bold">
+                  <Info className="w-4 h-4 text-amber-700 shrink-0" />
+                  <span>توزيع الحسابات المالية وعمولة الأخصائي:</span>
+                </div>
+                <p className="text-[11px] text-amber-800 leading-relaxed">
+                  تُحسب عمولة الطبيب/الأخصائي حصرياً على سعر الجلسة الأساسي (<strong>{basePrice} ج.م</strong>). قيمة المستلزمات والمبيعات الإضافية (<strong>{addonsTotal} ج.م</strong>) لا تدخل إطلاقاً في عمولة الأخصائي وتُدرج بنسبة 100% كإيراد صافٍ لصالح العيادة.
+                </p>
+              </div>
             </div>
 
             {/* Modal Actions */}
             <div className="p-4 px-6 border-t border-stone-100 flex items-center justify-between gap-3 bg-stone-50/40 shrink-0">
               <button
                 type="button"
-                onClick={onClose}
+                onClick={handleClose}
                 disabled={isSubmitting}
-                className="px-4 py-2.5 rounded-xl border border-stone-200 text-xs font-semibold text-stone-600 hover:bg-stone-100 transition-colors cursor-pointer"
+                className="px-4 py-2.5 rounded-xl border border-stone-200 text-xs font-semibold text-stone-600 hover:bg-stone-100 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none"
               >
                 إلغاء
               </button>
@@ -632,7 +708,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 type="button"
                 onClick={handleConfirmInvoice}
                 disabled={isSubmitting}
-                className="px-6 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                className="px-6 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none"
               >
                 {isSubmitting ? (
                   <>

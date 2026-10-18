@@ -48,7 +48,7 @@ export const StaffReportsView: React.FC = () => {
       if (end) params.append('endDate', end);
 
       const url = `/api/reports/staff${params.toString() ? `?${params.toString()}` : ''}`;
-      const res = await fetch(url);
+      const res = await fetch(url, { cache: 'no-store' });
       if (!res.ok) throw new Error('فشل جلب تقرير حسابات المتخصصين');
 
       const data = await res.json();
@@ -491,10 +491,14 @@ export const StaffReportsView: React.FC = () => {
             </div>
 
             {/* Quick Metrics Bar in Modal */}
-            <div className="grid grid-cols-3 gap-2 p-4 bg-stone-50/40 border-b border-stone-100 text-center">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-4 bg-stone-50/40 border-b border-stone-100 text-center">
               <div className="bg-white p-2.5 rounded-xl border border-stone-200/60">
-                <span className="text-[10px] text-stone-400 block font-medium">إجمالي دخل الجلسات</span>
+                <span className="text-[10px] text-stone-400 block font-medium">إجمالي الإيراد الكلي</span>
                 <strong className="text-sm text-stone-800">{selectedStaffForDetails.totalRevenue} ج.م</strong>
+              </div>
+              <div className="bg-white p-2.5 rounded-xl border border-stone-200/60">
+                <span className="text-[10px] text-blue-600 block font-medium">الأساسي الخاضع للعمولة</span>
+                <strong className="text-sm text-blue-800">{selectedStaffForDetails.commissionableBase ?? selectedStaffForDetails.totalRevenue} ج.م</strong>
               </div>
               <div className="bg-white p-2.5 rounded-xl border border-stone-200/60">
                 <span className="text-[10px] text-amber-700 block font-medium">
@@ -512,9 +516,14 @@ export const StaffReportsView: React.FC = () => {
 
             {/* Invoices List */}
             <div className="p-6 overflow-y-auto flex-1 space-y-3">
-              <span className="text-xs font-bold text-stone-700 block">
-                قائمة الفواتير المكتملة المسددة ({selectedStaffForDetails.appointments.length} جلسة):
-              </span>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-stone-700 block">
+                  قائمة الفواتير المكتملة المسددة ({selectedStaffForDetails.appointments.length} جلسة):
+                </span>
+                <span className="text-[11px] text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200 font-medium">
+                  * تُحسب العمولة على سعر الجلسة الأساسي فقط ولا تحتسب عمولة على المستهلكات
+                </span>
+              </div>
 
               {selectedStaffForDetails.appointments.length === 0 ? (
                 <div className="py-8 text-center text-stone-400 text-xs">
@@ -529,7 +538,10 @@ export const StaffReportsView: React.FC = () => {
                         <th className="py-2.5 px-3">التاريخ</th>
                         <th className="py-2.5 px-3">العميل</th>
                         <th className="py-2.5 px-3">الخدمة</th>
+                        <th className="py-2.5 px-3">سعر الجلسة</th>
+                        <th className="py-2.5 px-3">مستهلكات</th>
                         <th className="py-2.5 px-3">المحصل</th>
+                        <th className="py-2.5 px-3">عمولة الطبيب</th>
                         <th className="py-2.5 px-3">طريقة الدفع</th>
                       </tr>
                     </thead>
@@ -540,7 +552,10 @@ export const StaffReportsView: React.FC = () => {
                           <td className="py-2.5 px-3 text-stone-500">{apt.date}</td>
                           <td className="py-2.5 px-3 font-medium text-stone-800">{apt.clientName}</td>
                           <td className="py-2.5 px-3 text-stone-600">{apt.serviceName}</td>
-                          <td className="py-2.5 px-3 font-bold text-stone-800">{apt.invoiceTotal} ج.م</td>
+                          <td className="py-2.5 px-3 font-bold text-stone-700">{apt.basePrice ?? apt.finalPrice} ج.م</td>
+                          <td className="py-2.5 px-3 text-stone-500">{apt.consumablesPrice ? `+${apt.consumablesPrice} ج.م` : '—'}</td>
+                          <td className="py-2.5 px-3 font-extrabold text-stone-900">{apt.invoiceTotal} ج.م</td>
+                          <td className="py-2.5 px-3 font-bold text-amber-700">{apt.doctorCommission != null ? `${apt.doctorCommission} ج.م` : '—'}</td>
                           <td className="py-2.5 px-3">
                             <span className="inline-block px-2 py-0.5 rounded-md bg-stone-100 text-stone-600 text-[10px] font-medium">
                               {apt.paymentMethod}

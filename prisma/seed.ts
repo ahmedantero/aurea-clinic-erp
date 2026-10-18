@@ -198,21 +198,25 @@ async function main() {
       package_name: 'باكدج العروسة',
       fixed_price: 4000,
       discount_percentage: null,
+      sessions_count: 6,
     },
     {
       package_name: 'عرض 8 جلسات علاج طبيعي',
       fixed_price: 1100,
       discount_percentage: null,
+      sessions_count: 8,
     },
     {
       package_name: 'باكدج الصحاب - 3 أفراد',
       fixed_price: null,
       discount_percentage: 5,
+      sessions_count: 3,
     },
     {
       package_name: 'باكدج الصحاب - 10 أفراد',
       fixed_price: null,
       discount_percentage: 15,
+      sessions_count: 10,
     },
   ];
 
@@ -317,9 +321,44 @@ async function main() {
       });
     }
   }
-  console.log(`✓ Seeded ${usersData.length} users (Admin & Receptionist).`);
+  // 8. SEED APPOINTMENTS
+  const clients = await prisma.client.findMany();
+  const staff = await prisma.staff.findMany();
+  const services = await prisma.service.findMany();
 
-  console.log(`✓ Seeded ${inventoryData.length} inventory items.`);
+  if (clients.length > 0 && staff.length > 0 && services.length > 0) {
+    const c1 = clients.find(c => c.name.includes('نورا')) || clients[0];
+    const c2 = clients.find(c => c.name.includes('أحمد')) || clients[1] || clients[0];
+    const c3 = clients.find(c => c.name.includes('ليلى')) || clients[2] || clients[0];
+    const c4 = clients.find(c => c.name.includes('طارق')) || clients[3] || clients[0];
+
+    const s1 = staff.find(s => s.name.includes('سارة')) || staff[0];
+    const s2 = staff.find(s => s.name.includes('يوسف')) || staff[1] || staff[0];
+    const s3 = staff.find(s => s.name.includes('مها')) || staff[2] || staff[0];
+
+    const sv1 = services.find(s => s.name.includes('ديرما')) || services[0];
+    const sv2 = services.find(s => s.name.includes('طبيعي')) || services[1] || services[0];
+    const sv3 = services.find(s => s.name.includes('المغربي')) || services[2] || services[0];
+    const sv4 = services.find(s => s.name.includes('كاسات')) || services[3] || services[0];
+
+    const initialApts = [
+      { client_id: c1.id, staff_id: s1.id, service_id: sv1.id, appointment_date: new Date('2026-10-14T08:00:00.000Z'), status: 'مؤكد', final_price: 500 },
+      { client_id: c2.id, staff_id: s2.id, service_id: sv2.id, appointment_date: new Date('2026-10-14T10:30:00.000Z'), status: 'قيد الانتظار', final_price: 150 },
+      { client_id: c3.id, staff_id: s3.id, service_id: sv3.id, appointment_date: new Date('2026-10-15T12:00:00.000Z'), status: 'مؤكد', final_price: 750 },
+      { client_id: c4.id, staff_id: s1.id, service_id: sv4.id, appointment_date: new Date('2026-10-13T14:00:00.000Z'), status: 'مكتمل', final_price: 500 }
+    ];
+
+    for (const apt of initialApts) {
+      const exists = await prisma.appointment.findFirst({
+        where: { client_id: apt.client_id, service_id: apt.service_id }
+      });
+      if (!exists) {
+        await prisma.appointment.create({ data: apt });
+      }
+    }
+    console.log(`✓ Seeded initial appointments.`);
+  }
+
   console.log('--- Database Seeding Completed Successfully ---');
 }
 

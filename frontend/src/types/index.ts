@@ -10,7 +10,16 @@ export interface Appointment {
   appointmentDate: string;
   time: string;
   status: AppointmentStatus;
+  basePrice?: number;
+  totalConsumablesPrice?: number;
   finalPrice: number;
+  doctorCommission?: number;
+  doctorCommissionPercentage?: number;
+  clientPackageId?: string | null;
+  packageName?: string | null;
+  isPackageSession?: boolean;
+  consumables?: AppointmentConsumableItem[];
+  invoice?: GeneratedInvoice | null;
 }
 
 export interface CategoryItem {
@@ -28,6 +37,7 @@ export interface ServiceItem {
   maxPrice: number | null;
   durationMinutes: number;
   type: string;
+  sessionsCount?: number;
 }
 
 export interface PackageItem {
@@ -35,6 +45,7 @@ export interface PackageItem {
   name: string;
   fixedPrice: number | null;
   discountPercentage: number | null;
+  sessionsCount?: number;
 }
 
 export interface ClientAppointmentItem {
@@ -58,6 +69,23 @@ export interface ClientInvoiceItem {
   serviceName?: string;
 }
 
+export interface ClientPackageItem {
+  id: string;
+  clientId: string;
+  clientName?: string;
+  clientPhone?: string;
+  packageId?: string | null;
+  serviceId?: string | null;
+  packageName: string;
+  totalSessions: number;
+  usedSessions: number;
+  remainingSessions: number;
+  pricePaid: number;
+  status: 'ACTIVE' | 'COMPLETED' | string;
+  notes?: string;
+  createdAt?: string;
+}
+
 export interface ClientItem {
   id: string;
   name: string;
@@ -69,6 +97,7 @@ export interface ClientItem {
   joinDate?: string;
   appointments?: ClientAppointmentItem[];
   invoices?: ClientInvoiceItem[];
+  clientPackages?: ClientPackageItem[];
 }
 
 export interface StaffItem {
@@ -85,6 +114,9 @@ export interface StaffReportAppointment {
   date: string;
   clientName: string;
   serviceName: string;
+  basePrice?: number;
+  consumablesPrice?: number;
+  doctorCommission?: number;
   finalPrice: number;
   invoiceNumber: string;
   invoiceTotal: number;
@@ -99,6 +131,8 @@ export interface StaffReportItem {
   commissionValue: number;
   sessionsCount: number;
   totalRevenue: number;
+  commissionableBase?: number;
+  consumablesRevenue?: number;
   staffDue: number;
   centerProfit: number;
   appointments: StaffReportAppointment[];
@@ -108,8 +142,29 @@ export interface InventoryItemType {
   id: string;
   name: string;
   unitCost: number;
+  sellingPrice?: number;
   quantityInStock: number;
   unitType: string;
+}
+
+export interface AppointmentConsumableItem {
+  id?: string;
+  productId: string;
+  productName?: string;
+  quantity: number;
+  priceCharged?: number;
+}
+
+export interface InternalDispatchItem {
+  id: string;
+  productId: string;
+  productName: string;
+  unitType?: string;
+  quantity: number;
+  unitCost: number;
+  totalCost: number;
+  date: string;
+  notes?: string;
 }
 
 export interface InvoiceItem {
@@ -129,6 +184,9 @@ export interface GeneratedInvoice {
   clientPhone: string;
   serviceName: string;
   basePrice: number;
+  consumablesPrice?: number;
+  doctorCommission?: number;
+  doctorCommissionPercentage?: number;
   totalAmount: number;
   discountApplied: number;
   netAmount: number;
@@ -143,6 +201,22 @@ export interface ExpenseItem {
   expenseType: string;
   amount: number;
   notes?: string;
+  createdAt?: string;
+}
+
+export interface RevenueItem {
+  id: string;
+  amount: number;
+  date: string;
+  category: string;
+  description?: string;
+  source: 'MANUAL' | 'APPOINTMENT' | string;
+  referenceId?: string | null;
+  appointment?: {
+    id: string;
+    clientName: string;
+    serviceName: string;
+  } | null;
   createdAt?: string;
 }
 

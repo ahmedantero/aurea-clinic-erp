@@ -41,6 +41,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
   // Form states for New Item
   const [newItemName, setNewItemName] = useState('');
   const [newItemCost, setNewItemCost] = useState('');
+  const [newItemSellingPrice, setNewItemSellingPrice] = useState('');
   const [newItemStock, setNewItemStock] = useState('');
   const [newItemUnit, setNewItemUnit] = useState('قطعة');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -87,6 +88,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
         body: JSON.stringify({
           name: newItemName.trim(),
           unitCost: parseFloat(newItemCost),
+          sellingPrice: parseFloat(newItemSellingPrice) || 0,
           quantityInStock: parseFloat(newItemStock),
           unitType: newItemUnit,
         }),
@@ -101,6 +103,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
       // Reset
       setNewItemName('');
       setNewItemCost('');
+      setNewItemSellingPrice('');
       setNewItemStock('');
     } catch (err: any) {
       console.warn('API error, saving locally:', err);
@@ -108,6 +111,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
         id: `inv-${Date.now().toString().slice(-4)}`,
         name: newItemName.trim(),
         unitCost: parseFloat(newItemCost),
+        sellingPrice: parseFloat(newItemSellingPrice) || 0,
         quantityInStock: parseFloat(newItemStock),
         unitType: newItemUnit,
       };
@@ -294,7 +298,8 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
             <thead>
               <tr className="bg-stone-50/70 border-b border-stone-200/80 text-xs font-semibold text-stone-600">
                 <th className="py-3.5 px-6">اسم المنتج (Item Name)</th>
-                <th className="py-3.5 px-6">سعر البيع (Selling Price)</th>
+                <th className="py-3.5 px-6">سعر التكلفة (Cost)</th>
+                <th className="py-3.5 px-6">سعر البيع (Selling)</th>
                 <th className="py-3.5 px-6">الرصيد المتاح (Stock Quantity)</th>
                 <th className="py-3.5 px-6">حالة المخزون (Status)</th>
                 <th className="py-3.5 px-6 text-left">إجراءات</th>
@@ -303,7 +308,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
             <tbody className="divide-y divide-stone-100 text-sm">
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-12 text-center text-stone-400">
+                  <td colSpan={6} className="py-12 text-center text-stone-400">
                     <Package className="w-10 h-10 mx-auto mb-2 text-stone-300" />
                     <p className="font-medium text-stone-600">لا توجد منتجات مسجلة بالمخزن</p>
                     <p className="text-xs mt-1">اضغط على زر "إضافة منتج جديد" لإدخال الأصناف.</p>
@@ -322,9 +327,14 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                         </div>
                       </td>
 
-                      {/* سعر البيع */}
-                      <td className="py-4 px-6 font-bold text-stone-800">
+                      {/* سعر التكلفة */}
+                      <td className="py-4 px-6 font-bold text-stone-700">
                         {item.unitCost} <span className="text-xs font-normal text-stone-500">ج.م</span>
+                      </td>
+
+                      {/* سعر البيع للعميل */}
+                      <td className="py-4 px-6 font-bold text-emerald-800">
+                        {item.sellingPrice ?? 0} <span className="text-xs font-normal text-stone-500">ج.م</span>
                       </td>
 
                       {/* الرصيد المتاح */}
@@ -410,20 +420,35 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-stone-700 mb-1">
-                    سعر البيع (ج.م)
+                    سعر التكلفة (ج.م)
                   </label>
                   <input
                     type="number"
                     min="0"
-                    step="10"
+                    step="5"
                     required
-                    placeholder="مثال: 120"
+                    placeholder="مثال: 50"
                     value={newItemCost}
                     onChange={(e) => setNewItemCost(e.target.value)}
                     className="w-full px-3.5 py-2 text-sm rounded-xl border border-stone-200 bg-white focus:outline-hidden focus:border-emerald-600 font-bold"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-stone-700 mb-1">
+                    سعر البيع للعميل (ج.م)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="5"
+                    placeholder="مثال: 80"
+                    value={newItemSellingPrice}
+                    onChange={(e) => setNewItemSellingPrice(e.target.value)}
+                    className="w-full px-3.5 py-2 text-sm rounded-xl border border-stone-200 bg-white focus:outline-hidden focus:border-emerald-600 font-bold text-emerald-800"
                   />
                 </div>
 

@@ -19,9 +19,19 @@ import {
   Award, 
   Activity,
   CreditCard,
-  UserCheck
+  UserCheck,
+  Layers,
+  Package as PackageIcon,
+  Check
 } from 'lucide-react';
-import { ClientItem, ClientAppointmentItem, ClientInvoiceItem } from '../types';
+import { 
+  ClientItem, 
+  ClientAppointmentItem, 
+  ClientInvoiceItem, 
+  ClientPackageItem, 
+  ServiceItem, 
+  PackageItem 
+} from '../types';
 
 interface ClientsViewProps {
   clients: ClientItem[];
@@ -29,6 +39,8 @@ interface ClientsViewProps {
   onAddClient: (newClient: ClientItem) => void;
   onUpdateClient: (updatedClient: ClientItem) => void;
   onDeleteClient: (id: string) => void;
+  services?: ServiceItem[];
+  packages?: PackageItem[];
 }
 
 export const ClientsView: React.FC<ClientsViewProps> = ({
@@ -37,6 +49,8 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
   onAddClient,
   onUpdateClient,
   onDeleteClient,
+  services = [],
+  packages = [],
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -46,7 +60,19 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
   const [editingClientId, setEditingClientId] = useState<string | null>(null);
 
   // Profile Sub-tab
-  const [profileActiveTab, setProfileActiveTab] = useState<'appointments' | 'invoices'>('appointments');
+  const [profileActiveTab, setProfileActiveTab] = useState<'packages' | 'appointments' | 'invoices'>('packages');
+
+  // Assign Package Modal state
+  const [isAssignPackageModalOpen, setIsAssignPackageModalOpen] = useState(false);
+  const [assignSource, setAssignSource] = useState<'service' | 'package' | 'custom'>('service');
+  const [assignServiceId, setAssignServiceId] = useState('');
+  const [assignPackageId, setAssignPackageId] = useState('');
+  const [assignPackageName, setAssignPackageName] = useState('');
+  const [assignTotalSessions, setAssignTotalSessions] = useState<number>(6);
+  const [assignPricePaid, setAssignPricePaid] = useState<string>('0');
+  const [assignNotes, setAssignNotes] = useState('');
+  const [isSubmittingPackage, setIsSubmittingPackage] = useState(false);
+  const [assignPackageError, setAssignPackageError] = useState<string | null>(null);
 
   // Form Fields
   const [formName, setFormName] = useState('');
@@ -54,6 +80,178 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
   const [formMedicalHistory, setFormMedicalHistory] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+
+  // Keep selectedClientForProfile in sync with latest clients list (real-time reactivity)
+  React.useEffect(() => {
+    if (selectedClientForProfile) {
+      const fresh = clients.find((c) => c.id === selectedClientForProfile.id);
+      if (fresh) {
+        setSelectedClientForProfile(fresh);
+      }
+    }
+  }, [clients]);
+
+  // Open modal for Assigning Package
+  const handleOpenAssignPackageModal = () => {
+    setAssignSource('service');
+    const firstSrv = services && services.length > 0 ? services[0] : null;
+    if (firstSrv) {
+      setAssignServiceId(firstSrv.id);
+      setAssignPackageName(`باقة ${firstSrv.name} (6 جلسات)`);
+      setAssignPricePaid((firstSrv.minPrice * 6).toString());
+    } else {
+      setAssignServiceId('');
+      setAssignPackageName('باقة جلسات علاجية');
+      setAssignPricePaid('1200');
+    }
+    setAssignPackageId(packages && packages.length > 0 ? packages[0].id : '');
+    setAssignTotalSessions(6);
+    setAssignNotes('');
+    setAssignPackageError(null);
+    setIsAssignPackageModalOpen(true);
+  };
+
+  const handleAssignSourceChange = (src: 'service' | 'package' | 'custom') => {
+    setAssignSource(src);
+    if (src === 'service') {
+      const srv = services?.find((s) => s.id === assignServiceId) || services?.[0];
+      if (srv) {
+        setAssignServiceId(srv.id);
+        setAssignPackageName(`باقة ${srv.name} (${assignTotalSessions} جلسات)`);
+        setAssignPricePaid((srv.minPrice * assignTotalSessions).toString());
+      }
+    } else if (src === 'package') {
+      const pkg = packages?.find((p) => p.id === assignPackageId) || packages?.[0];
+      if (pkg) {
+        setAssignPackageId(pkg.id);
+        setAssignPackageName(pkg.name);
+        setAssignPricePaid((pkg.fixedPrice || 1500).toString());
+      }
+    } else {
+      setAssignPackageName('باقة مخصصة');
+    }
+  };
+
+  const handleAssignPackageSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedClientForProfile) return;
+
+    if (!assignPackageName.trim()) {
+      setAssignPackageError('يرجى تحديد اسم الباقة');
+      return;
+    }
+
+    if (assignTotalSessions <= 0) {
+      setAssignPackageError('عدد الجلسات يجب أن يكون أكبر من صفر');
+      return;
+    }
+
+    setIsSubmittingPackage(true);
+    setAssignPackageError(null);
+
+    try {
+      const payload = {
+        clientId: selectedClientForProfile.id,
+        packageId: assignSource === 'package' ? assignPackageId : null,
+        serviceId: assignSource === 'service' ? assignServiceId : null,
+        packageName: assignPackageName.trim(),
+        totalSessions: assignTotalSessions,
+        pricePaid: parseFloat(assignPricePaid) || 0,
+        notes: assignNotes.trim() || null,
+      };
+
+      const res = await fetch('/api/client-packages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'تعذر إسناد الباقة للعميل');
+      }
+
+      const createdPackage: ClientPackageItem = await res.json();
+
+      // Update client state
+      const updatedPackages = [createdPackage, ...(selectedClientForProfile.clientPackages || [])];
+      const updatedClient: ClientItem = {
+        ...selectedClientForProfile,
+        clientPackages: updatedPackages,
+      };
+
+      setSelectedClientForProfile(updatedClient);
+      onUpdateClient(updatedClient);
+      setIsAssignPackageModalOpen(false);
+    } catch (err: any) {
+      console.warn('Error assigning package:', err);
+      setAssignPackageError(err.message || 'حدث خطأ أثناء حفظ الباقة');
+    } finally {
+      setIsSubmittingPackage(false);
+    }
+  };
+
+  const handleIncrementPackageSession = async (pkg: ClientPackageItem) => {
+    if (!selectedClientForProfile) return;
+    if (pkg.usedSessions >= pkg.totalSessions) return;
+
+    try {
+      const newUsed = pkg.usedSessions + 1;
+      const res = await fetch(`/api/client-packages/${pkg.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ usedSessions: newUsed }),
+      });
+
+      if (!res.ok) {
+        throw new Error('فشل تحديث رصيد الجلسات');
+      }
+
+      const updated = await res.json();
+      const updatedPackages = (selectedClientForProfile.clientPackages || []).map((p) =>
+        p.id === pkg.id ? { ...p, ...updated } : p
+      );
+      const updatedClient: ClientItem = {
+        ...selectedClientForProfile,
+        clientPackages: updatedPackages,
+      };
+
+      setSelectedClientForProfile(updatedClient);
+      onUpdateClient(updatedClient);
+    } catch (err) {
+      console.warn('Error updating session count:', err);
+      alert('تعذر تحديث رصيد الجلسات');
+    }
+  };
+
+  const handleDeletePackage = async (packageId: string) => {
+    if (!selectedClientForProfile) return;
+    if (!confirm('هل أنت متأكد من حذف هذه الباقة من سجل العميل؟')) return;
+
+    try {
+      const res = await fetch(`/api/client-packages/${packageId}`, {
+        method: 'DELETE',
+      });
+
+      if (!res.ok) {
+        throw new Error('فشل حذف الباقة');
+      }
+
+      const updatedPackages = (selectedClientForProfile.clientPackages || []).filter(
+        (p) => p.id !== packageId
+      );
+      const updatedClient: ClientItem = {
+        ...selectedClientForProfile,
+        clientPackages: updatedPackages,
+      };
+
+      setSelectedClientForProfile(updatedClient);
+      onUpdateClient(updatedClient);
+    } catch (err) {
+      console.warn('Error deleting package:', err);
+      alert('تعذر حذف الباقة');
+    }
+  };
 
   // Open modal for Adding
   const handleOpenAddModal = () => {
@@ -449,28 +647,58 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
             )}
 
             {/* Quick Metrics Bar in Profile */}
-            <div className="grid grid-cols-3 gap-3 p-4 bg-stone-50/50 border-b border-stone-100 text-center">
-              <div className="bg-white p-3 rounded-xl border border-stone-200/70">
-                <span className="text-[11px] text-stone-400 block font-medium">إجمالي الزيارات</span>
-                <strong className="text-base text-stone-800">{selectedClientForProfile.totalVisits || 0} زيارة</strong>
-              </div>
-              <div className="bg-white p-3 rounded-xl border border-stone-200/70">
-                <span className="text-[11px] text-emerald-700 block font-medium">إجمالي المدفوعات</span>
-                <strong className="text-base text-emerald-800">
-                  {(selectedClientForProfile.totalSpent || 0).toLocaleString()} ج.م
-                </strong>
-              </div>
-              <div className="bg-white p-3 rounded-xl border border-stone-200/70">
-                <span className="text-[11px] text-amber-700 block font-medium">نقاط الولاء</span>
-                <strong className="text-base text-amber-800">{selectedClientForProfile.loyaltyPoints} نقطة</strong>
-              </div>
-            </div>
+            {(() => {
+              const activePkgs = (selectedClientForProfile.clientPackages || []).filter(
+                (p) => p.status === 'ACTIVE' && p.usedSessions < p.totalSessions
+              );
+              const remainingSessionsTotal = activePkgs.reduce(
+                (sum, p) => sum + (p.totalSessions - p.usedSessions),
+                0
+              );
+
+              return (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 bg-stone-50/50 border-b border-stone-100 text-center">
+                  <div className="bg-white p-3 rounded-xl border border-stone-200/70">
+                    <span className="text-[11px] text-stone-400 block font-medium">إجمالي الزيارات</span>
+                    <strong className="text-base text-stone-800">{selectedClientForProfile.totalVisits || 0} زيارة</strong>
+                  </div>
+                  <div className="bg-white p-3 rounded-xl border border-stone-200/70">
+                    <span className="text-[11px] text-emerald-700 block font-medium">إجمالي المدفوعات</span>
+                    <strong className="text-base text-emerald-800">
+                      {(selectedClientForProfile.totalSpent || 0).toLocaleString()} ج.م
+                    </strong>
+                  </div>
+                  <div className="bg-white p-3 rounded-xl border border-stone-200/70">
+                    <span className="text-[11px] text-amber-700 block font-medium">نقاط الولاء</span>
+                    <strong className="text-base text-amber-800">{selectedClientForProfile.loyaltyPoints} نقطة</strong>
+                  </div>
+                  <div className="bg-white p-3 rounded-xl border border-purple-200/80 bg-purple-50/20">
+                    <span className="text-[11px] text-purple-700 block font-bold">باقات وجلسات نشطة</span>
+                    <strong className="text-base text-purple-900">
+                      {activePkgs.length > 0 ? `${activePkgs.length} باقة (${remainingSessionsTotal} جلسة)` : 'لا توجد'}
+                    </strong>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Tabs Navigation in Profile */}
-            <div className="px-6 pt-3 flex items-center gap-2 border-b border-stone-100">
+            <div className="px-6 pt-3 flex items-center gap-2 border-b border-stone-100 overflow-x-auto">
+              <button
+                onClick={() => setProfileActiveTab('packages')}
+                className={`pb-2.5 px-3 text-xs font-bold transition-all border-b-2 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+                  profileActiveTab === 'packages'
+                    ? 'border-emerald-700 text-emerald-800'
+                    : 'border-transparent text-stone-400 hover:text-stone-700'
+                }`}
+              >
+                <Layers className="w-3.5 h-3.5" />
+                <span>باقات وجلسات العميل ({selectedClientForProfile.clientPackages?.length || 0})</span>
+              </button>
+
               <button
                 onClick={() => setProfileActiveTab('appointments')}
-                className={`pb-2.5 px-3 text-xs font-bold transition-all border-b-2 cursor-pointer flex items-center gap-1.5 ${
+                className={`pb-2.5 px-3 text-xs font-bold transition-all border-b-2 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
                   profileActiveTab === 'appointments'
                     ? 'border-emerald-700 text-emerald-800'
                     : 'border-transparent text-stone-400 hover:text-stone-700'
@@ -482,7 +710,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
 
               <button
                 onClick={() => setProfileActiveTab('invoices')}
-                className={`pb-2.5 px-3 text-xs font-bold transition-all border-b-2 cursor-pointer flex items-center gap-1.5 ${
+                className={`pb-2.5 px-3 text-xs font-bold transition-all border-b-2 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
                   profileActiveTab === 'invoices'
                     ? 'border-emerald-700 text-emerald-800'
                     : 'border-transparent text-stone-400 hover:text-stone-700'
@@ -495,7 +723,123 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
 
             {/* Profile Content Body */}
             <div className="p-6 overflow-y-auto flex-1 space-y-4">
-              {profileActiveTab === 'appointments' ? (
+              {profileActiveTab === 'packages' ? (
+                /* Packages & Multi-Session Tracking Section */
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between pb-1 border-b border-stone-100">
+                    <div>
+                      <h4 className="text-sm font-bold text-stone-800">باقات وجلسات العميل (Active Packages & Sessions)</h4>
+                      <p className="text-xs text-stone-400">متابعة رصيد الجلسات المتبقية ونسبة الاستهلاك</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleOpenAssignPackageModal}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-medium text-xs transition-colors cursor-pointer shadow-2xs"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>إسناد باقة جديدة</span>
+                    </button>
+                  </div>
+
+                  {!selectedClientForProfile.clientPackages || selectedClientForProfile.clientPackages.length === 0 ? (
+                    <div className="py-12 text-center text-stone-400 text-xs">
+                      <Layers className="w-10 h-10 mx-auto mb-2.5 text-stone-300" />
+                      <p className="font-semibold text-stone-600">لا توجد باقات أو جلسات مسندة لهذا العميل حتى الآن</p>
+                      <p className="text-stone-400 mt-1">يمكنك إسناد باقة ليزر، جلسات علاجية، أو عناية بالبشرة ومتابعتها تلقائياً.</p>
+                      <button
+                        type="button"
+                        onClick={handleOpenAssignPackageModal}
+                        className="mt-3.5 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-medium text-xs transition-colors cursor-pointer"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>إسناد باقة جديدة الآن</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 gap-3">
+                      {selectedClientForProfile.clientPackages.map((cp) => {
+                        const isCompleted = cp.status === 'COMPLETED' || cp.usedSessions >= cp.totalSessions;
+                        const pct = Math.min(100, Math.round((cp.usedSessions / cp.totalSessions) * 100));
+
+                        return (
+                          <div
+                            key={cp.id}
+                            className="p-4 rounded-2xl border border-stone-200/80 bg-white shadow-2xs hover:border-emerald-200 transition-all space-y-3"
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <h5 className="font-bold text-stone-800 text-sm">{cp.packageName}</h5>
+                                  <span
+                                    className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                                      isCompleted
+                                        ? 'bg-stone-100 text-stone-600 border border-stone-200'
+                                        : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                                    }`}
+                                  >
+                                    {isCompleted ? 'مكتملة' : 'نشطة'}
+                                  </span>
+                                </div>
+                                <p className="text-xs text-stone-400 mt-1">
+                                  تاريخ الاشتراك: {cp.createdAt || '—'} • القيمة المسددة: <span className="font-semibold text-stone-700">{cp.pricePaid} ج.م</span>
+                                </p>
+                              </div>
+
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => handleIncrementPackageSession(cp)}
+                                  disabled={isCompleted}
+                                  className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-emerald-50 text-emerald-800 hover:bg-emerald-100 disabled:opacity-40 disabled:cursor-not-allowed border border-emerald-200/80 transition-colors cursor-pointer"
+                                  title="تسجيل استهلاك جلسة يدوياً"
+                                >
+                                  +1 جلسة مستخدمة
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeletePackage(cp.id)}
+                                  className="p-1.5 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                                  title="حذف الباقة"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Progress Bar */}
+                            <div className="space-y-1.5">
+                              <div className="flex items-center justify-between text-xs font-medium">
+                                <span className="text-stone-700">
+                                  تم استهلاك <strong className="text-stone-900">{cp.usedSessions}</strong> من أصل <strong className="text-stone-900">{cp.totalSessions}</strong> جلسة
+                                </span>
+                                <span className="text-emerald-800 font-bold">
+                                  المتبقي: {Math.max(0, cp.totalSessions - cp.usedSessions)} جلسات ({pct}%)
+                                </span>
+                              </div>
+                              <div className="w-full bg-stone-100 h-2.5 rounded-full overflow-hidden border border-stone-200/50">
+                                <div
+                                  className={`h-full rounded-full transition-all duration-500 ${
+                                    isCompleted
+                                      ? 'bg-stone-400'
+                                      : 'bg-gradient-to-l from-emerald-600 to-teal-500'
+                                  }`}
+                                  style={{ width: `${pct}%` }}
+                                />
+                              </div>
+                            </div>
+
+                            {cp.notes && (
+                              <p className="text-xs text-stone-600 bg-stone-50 p-2.5 rounded-xl border border-stone-100">
+                                <span className="font-semibold text-stone-700">ملاحظات:</span> {cp.notes}
+                              </p>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              ) : profileActiveTab === 'appointments' ? (
                 /* Visit History Section */
                 <div>
                   {!selectedClientForProfile.appointments || selectedClientForProfile.appointments.length === 0 ? (
@@ -693,6 +1037,226 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                   className="px-5 py-2 text-xs font-bold rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white transition-colors cursor-pointer disabled:opacity-50"
                 >
                   {isSubmitting ? 'جاري الحفظ...' : editingClientId ? 'حفظ التعديلات' : 'إضافة العميل'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 3: إسناد باقة جديدة للعميل (Assign New Package Modal) */}
+      {isAssignPackageModalOpen && selectedClientForProfile && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/40 backdrop-blur-xs">
+          <div
+            className="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-stone-200 overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+            dir="rtl"
+          >
+            {/* Header */}
+            <div className="px-6 py-4.5 border-b border-stone-100 flex items-center justify-between bg-stone-50/70">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center border border-purple-100">
+                  <Layers className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-stone-800 text-base">إسناد باقة وجلسات للعميل</h3>
+                  <p className="text-xs text-stone-400">{selectedClientForProfile.name}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsAssignPackageModalOpen(false)}
+                className="p-1.5 rounded-xl text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleAssignPackageSubmit} className="p-6 space-y-4 text-right">
+              {assignPackageError && (
+                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{assignPackageError}</span>
+                </div>
+              )}
+
+              {/* Source Type Selection */}
+              <div>
+                <label className="block text-xs font-bold text-stone-700 mb-1.5">مصدر الباقة</label>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleAssignSourceChange('service')}
+                    className={`py-2 px-2 text-xs font-semibold rounded-xl border transition-all cursor-pointer ${
+                      assignSource === 'service'
+                        ? 'border-emerald-600 bg-emerald-50 text-emerald-800'
+                        : 'border-stone-200 bg-white text-stone-600 hover:bg-stone-50'
+                    }`}
+                  >
+                    من الخدمات
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleAssignSourceChange('package')}
+                    className={`py-2 px-2 text-xs font-semibold rounded-xl border transition-all cursor-pointer ${
+                      assignSource === 'package'
+                        ? 'border-emerald-600 bg-emerald-50 text-emerald-800'
+                        : 'border-stone-200 bg-white text-stone-600 hover:bg-stone-50'
+                    }`}
+                  >
+                    من العروض
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleAssignSourceChange('custom')}
+                    className={`py-2 px-2 text-xs font-semibold rounded-xl border transition-all cursor-pointer ${
+                      assignSource === 'custom'
+                        ? 'border-emerald-600 bg-emerald-50 text-emerald-800'
+                        : 'border-stone-200 bg-white text-stone-600 hover:bg-stone-50'
+                    }`}
+                  >
+                    باقة مخصصة
+                  </button>
+                </div>
+              </div>
+
+              {/* Service Dropdown */}
+              {assignSource === 'service' && services.length > 0 && (
+                <div>
+                  <label className="block text-xs font-bold text-stone-700 mb-1">اختر الخدمة</label>
+                  <select
+                    value={assignServiceId}
+                    onChange={(e) => {
+                      const sid = e.target.value;
+                      setAssignServiceId(sid);
+                      const s = services.find((x) => x.id === sid);
+                      if (s) {
+                        setAssignPackageName(`باقة ${s.name} (${assignTotalSessions} جلسات)`);
+                        setAssignPricePaid((s.minPrice * assignTotalSessions).toString());
+                      }
+                    }}
+                    className="w-full px-3.5 py-2 text-sm rounded-xl border border-stone-200 bg-white focus:outline-hidden focus:border-emerald-600 text-stone-800 font-medium"
+                  >
+                    {services.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name} ({s.minPrice} ج.م للجلسة)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Package Dropdown */}
+              {assignSource === 'package' && packages.length > 0 && (
+                <div>
+                  <label className="block text-xs font-bold text-stone-700 mb-1">اختر العرض / الباكدج</label>
+                  <select
+                    value={assignPackageId}
+                    onChange={(e) => {
+                      const pid = e.target.value;
+                      setAssignPackageId(pid);
+                      const p = packages.find((x) => x.id === pid);
+                      if (p) {
+                        setAssignPackageName(p.name);
+                        setAssignPricePaid((p.fixedPrice || 1500).toString());
+                      }
+                    }}
+                    className="w-full px-3.5 py-2 text-sm rounded-xl border border-stone-200 bg-white focus:outline-hidden focus:border-emerald-600 text-stone-800 font-medium"
+                  >
+                    {packages.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name} ({p.fixedPrice || 0} ج.م)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Package Name */}
+              <div>
+                <label className="block text-xs font-bold text-stone-700 mb-1">
+                  اسم الباقة <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="مثال: باقة ليزر إزالة الشعر (6 جلسات)"
+                  value={assignPackageName}
+                  onChange={(e) => setAssignPackageName(e.target.value)}
+                  className="w-full px-3.5 py-2 text-sm rounded-xl border border-stone-200 bg-white focus:outline-hidden focus:border-emerald-600 text-stone-800 font-medium"
+                />
+              </div>
+
+              {/* Total Sessions & Price Paid */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-stone-700 mb-1">
+                    إجمالي عدد الجلسات <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="100"
+                    required
+                    value={assignTotalSessions}
+                    onChange={(e) => {
+                      const n = parseInt(e.target.value, 10) || 1;
+                      setAssignTotalSessions(n);
+                      if (assignSource === 'service') {
+                        const s = services.find((x) => x.id === assignServiceId);
+                        if (s) {
+                          setAssignPackageName(`باقة ${s.name} (${n} جلسات)`);
+                          setAssignPricePaid((s.minPrice * n).toString());
+                        }
+                      }
+                    }}
+                    className="w-full px-3.5 py-2 text-sm rounded-xl border border-stone-200 bg-white focus:outline-hidden focus:border-emerald-600 text-stone-800 font-bold text-center"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-stone-700 mb-1">
+                    السعر المدفوع (ج.م)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="50"
+                    value={assignPricePaid}
+                    onChange={(e) => setAssignPricePaid(e.target.value)}
+                    className="w-full px-3.5 py-2 text-sm rounded-xl border border-stone-200 bg-white focus:outline-hidden focus:border-emerald-600 text-stone-800 font-bold text-center"
+                  />
+                </div>
+              </div>
+
+              {/* Notes */}
+              <div>
+                <label className="block text-xs font-bold text-stone-700 mb-1">ملاحظات أو شروط الباقة</label>
+                <textarea
+                  rows={2}
+                  placeholder="ملاحظات الطبيب أو أي شروط خاصة بالباقة..."
+                  value={assignNotes}
+                  onChange={(e) => setAssignNotes(e.target.value)}
+                  className="w-full px-3.5 py-2 text-sm rounded-xl border border-stone-200 bg-white focus:outline-hidden focus:border-emerald-600 text-stone-800 resize-none"
+                />
+              </div>
+
+              {/* Submit Buttons */}
+              <div className="pt-2 flex items-center justify-end gap-2 border-t border-stone-100">
+                <button
+                  type="button"
+                  onClick={() => setIsAssignPackageModalOpen(false)}
+                  disabled={isSubmittingPackage}
+                  className="px-4 py-2 text-xs font-bold rounded-xl text-stone-500 hover:bg-stone-100 transition-colors cursor-pointer"
+                >
+                  إلغاء
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingPackage}
+                  className="px-5 py-2 text-xs font-bold rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  {isSubmittingPackage ? 'جاري الحفظ...' : 'حفظ وإسناد الباقة'}
                 </button>
               </div>
             </form>

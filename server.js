@@ -1,3 +1,5 @@
+try { if (process.loadEnvFile) process.loadEnvFile(); } catch (e) {}
+
 const express = require('express');
 const cors = require('cors');
 const { PrismaClient } = require('@prisma/client');
@@ -9,8 +11,18 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
+// Strict Cache-Busting Headers for Real-Time ERP (No Caching Anywhere)
+app.use((req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  res.setHeader('Surrogate-Control', 'no-store');
+  next();
+});
+
 // Health check
 app.get('/api/health', (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   res.json({ status: 'ok', database: 'connected' });
 });
 
@@ -134,6 +146,7 @@ app.get('/api/services', async (req, res) => {
         maxPrice: s.max_price,
         durationMinutes: s.duration_minutes,
         type: s.type,
+        sessionsCount: s.sessions_count || 1,
       }))
     );
   } catch (err) {
@@ -145,7 +158,7 @@ app.get('/api/services', async (req, res) => {
 // 1.1 CREATE SERVICE
 app.post('/api/services', async (req, res) => {
   try {
-    const { name, categoryId, category, minPrice, maxPrice, durationMinutes, type } = req.body;
+    const { name, categoryId, category, minPrice, maxPrice, durationMinutes, type, sessionsCount } = req.body;
     if (!name || !name.trim()) {
       return res.status(400).json({ error: 'اسم الخدمة مطلوب' });
     }
@@ -177,6 +190,7 @@ app.post('/api/services', async (req, res) => {
         max_price: maxPrice ? parseFloat(maxPrice) : null,
         duration_minutes: dur,
         type: type ? type.trim() : cat.name,
+        sessions_count: parseInt(sessionsCount, 10) || 1,
       },
       include: { category: true },
     });
@@ -190,6 +204,7 @@ app.post('/api/services', async (req, res) => {
       maxPrice: created.max_price,
       durationMinutes: created.duration_minutes,
       type: created.type,
+      sessionsCount: created.sessions_count || 1,
     });
   } catch (err) {
     console.error('Error creating service:', err);
@@ -201,7 +216,7 @@ app.post('/api/services', async (req, res) => {
 app.put('/api/services/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, categoryId, category, minPrice, maxPrice, durationMinutes, type } = req.body;
+    const { name, categoryId, category, minPrice, maxPrice, durationMinutes, type, sessionsCount } = req.body;
 
     const dataToUpdate = {};
     if (name) dataToUpdate.name = name.trim();
@@ -209,6 +224,7 @@ app.put('/api/services/:id', async (req, res) => {
     if (maxPrice !== undefined) dataToUpdate.max_price = maxPrice ? parseFloat(maxPrice) : null;
     if (durationMinutes !== undefined) dataToUpdate.duration_minutes = parseInt(durationMinutes) || 45;
     if (type) dataToUpdate.type = type.trim();
+    if (sessionsCount !== undefined) dataToUpdate.sessions_count = parseInt(sessionsCount, 10) || 1;
 
     if (categoryId || category) {
       let cat = null;
@@ -241,6 +257,7 @@ app.put('/api/services/:id', async (req, res) => {
       maxPrice: updated.max_price,
       durationMinutes: updated.duration_minutes,
       type: updated.type,
+      sessionsCount: updated.sessions_count || 1,
     });
   } catch (err) {
     console.error('Error updating service:', err);
@@ -291,11 +308,308 @@ app.get('/api/packages', async (req, res) => {
         name: p.package_name,
         fixedPrice: p.fixed_price,
         discountPercentage: p.discount_percentage,
+        sessionsCount: p.sessions_count || 1,
       }))
     );
   } catch (err) {
     console.error('Error fetching packages:', err);
     res.status(500).json({ error: 'Failed to fetch packages' });
+  }
+});
+
+// 2.1 CREATE PACKAGE
+app.post('/api/packages', async (req, res) => {
+  try {
+    const { name, fixedPrice, discountPercentage, sessionsCount } = req.body;
+    if (!name || !name.trim()) {
+      return res.status(400).json({ error: 'اسم الباقة مطلوب' });
+    }
+    const created = await prisma.package.create({
+      data: {
+        package_name: name.trim(),
+        fixed_price: fixedPrice ? parseFloat(fixedPrice) : null,
+        discount_percentage: discountPercentage ? parseFloat(discountPercentage) : null,
+        sessions_count: parseInt(sessionsCount, 10) || 1,
+        is_active: true,
+      },
+    });
+    res.status(201).json({
+      id: created.id,
+      name: created.package_name,
+      fixedPrice: created.fixed_price,
+      discountPercentage: created.discount_percentage,
+      sessionsCount: created.sessions_count || 1,
+    });
+  } catch (err) {
+    console.error('Error creating package:', err);
+    res.status(500).json({ error: 'فشل إنشاء الباقة' });
+  }
+});
+
+// 2.2 UPDATE PACKAGE
+app.put('/api/packages/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, fixedPrice, discountPercentage, sessionsCount, isActive } = req.body;
+    const dataToUpdate = {};
+    if (name) dataToUpdate.package_name = name.trim();
+    if (fixedPrice !== undefined) dataToUpdate.fixed_price = fixedPrice ? parseFloat(fixedPrice) : null;
+    if (discountPercentage !== undefined) dataToUpdate.discount_percentage = discountPercentage ? parseFloat(discountPercentage) : null;
+    if (sessionsCount !== undefined) dataToUpdate.sessions_count = parseInt(sessionsCount, 10) || 1;
+    if (isActive !== undefined) dataToUpdate.is_active = !!isActive;
+
+    const updated = await prisma.package.update({
+      where: { id },
+      data: dataToUpdate,
+    });
+    res.json({
+      id: updated.id,
+      name: updated.package_name,
+      fixedPrice: updated.fixed_price,
+      discountPercentage: updated.discount_percentage,
+      sessionsCount: updated.sessions_count || 1,
+    });
+  } catch (err) {
+    console.error('Error updating package:', err);
+    res.status(500).json({ error: 'فشل تحديث الباقة' });
+  }
+});
+
+// 2.3 DELETE PACKAGE
+app.delete('/api/packages/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await prisma.package.update({
+      where: { id },
+      data: { is_active: false },
+    });
+    res.json({ success: true, message: 'تم إلغاء تفعيل الباقة بنجاح' });
+  } catch (err) {
+    console.error('Error deleting package:', err);
+    res.status(500).json({ error: 'فشل حذف الباقة' });
+  }
+});
+
+// ==========================================
+// 2.5 CLIENT PACKAGES & MULTI-SESSION TRACKING
+// ==========================================
+
+// Helper: Auto-increment used_sessions when an appointment is completed
+async function handlePackageDeductionOnCompletion(appointmentId) {
+  try {
+    const apt = await prisma.appointment.findUnique({
+      where: { id: appointmentId },
+      include: { clientPackage: true },
+    });
+
+    if (apt && apt.client_package_id && apt.clientPackage) {
+      const currentUsed = apt.clientPackage.used_sessions || 0;
+      const totalSessions = apt.clientPackage.total_sessions || 0;
+      const newUsed = currentUsed + 1;
+      const newStatus = newUsed >= totalSessions ? 'COMPLETED' : 'ACTIVE';
+
+      await prisma.clientPackage.update({
+        where: { id: apt.client_package_id },
+        data: {
+          used_sessions: newUsed,
+          status: newStatus,
+        },
+      });
+      console.log(`[ClientPackage] Incremented used_sessions for package ${apt.client_package_id}: ${newUsed}/${totalSessions} (Status: ${newStatus})`);
+    }
+  } catch (err) {
+    console.warn('[ClientPackage] Error auto-incrementing package sessions:', err.message);
+  }
+}
+
+// GET all client packages (optionally filter by clientId or status)
+app.get('/api/client-packages', async (req, res) => {
+  try {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    const { clientId, status } = req.query;
+    const where = {};
+    if (clientId) where.client_id = clientId;
+    if (status) where.status = status;
+
+    const packages = await prisma.clientPackage.findMany({
+      where,
+      include: {
+        client: true,
+        service: true,
+        package: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    res.json(
+      packages.map((cp) => ({
+        id: cp.id,
+        clientId: cp.client_id,
+        clientName: cp.client?.name || 'عميل غير محدد',
+        clientPhone: cp.client?.phone || '',
+        packageId: cp.package_id,
+        serviceId: cp.service_id,
+        packageName: cp.package_name || cp.package?.package_name || cp.service?.name || 'باقة جلسات',
+        totalSessions: cp.total_sessions,
+        usedSessions: cp.used_sessions,
+        remainingSessions: Math.max(0, cp.total_sessions - cp.used_sessions),
+        pricePaid: cp.price_paid,
+        status: cp.status,
+        notes: cp.notes || '',
+        createdAt: cp.createdAt ? cp.createdAt.toISOString().split('T')[0] : '',
+      }))
+    );
+  } catch (err) {
+    console.error('Error fetching client packages:', err);
+    res.status(500).json({ error: 'Failed to fetch client packages' });
+  }
+});
+
+// POST assign new package to client
+app.post('/api/client-packages', async (req, res) => {
+  try {
+    const {
+      clientId,
+      packageId,
+      serviceId,
+      packageName,
+      totalSessions,
+      pricePaid = 0,
+      notes = '',
+    } = req.body;
+
+    if (!clientId) {
+      return res.status(400).json({ error: 'العميل مطلوب' });
+    }
+
+    const sessionsCount = parseInt(totalSessions, 10);
+    if (isNaN(sessionsCount) || sessionsCount <= 0) {
+      return res.status(400).json({ error: 'عدد الجلسات الإجمالي يجب أن يكون رقماً أكبر من صفر' });
+    }
+
+    let resolvedName = packageName;
+    if (!resolvedName && packageId) {
+      const p = await prisma.package.findUnique({ where: { id: packageId } });
+      if (p) resolvedName = p.package_name;
+    }
+    if (!resolvedName && serviceId) {
+      const s = await prisma.service.findUnique({ where: { id: serviceId } });
+      if (s) resolvedName = `باقة ${s.name}`;
+    }
+    if (!resolvedName) {
+      resolvedName = 'باقة جلسات متعددة';
+    }
+
+    const created = await prisma.clientPackage.create({
+      data: {
+        client_id: clientId,
+        package_id: packageId || null,
+        service_id: serviceId || null,
+        package_name: resolvedName,
+        total_sessions: sessionsCount,
+        used_sessions: 0,
+        price_paid: parseFloat(pricePaid) || 0,
+        status: 'ACTIVE',
+        notes: notes || null,
+      },
+      include: {
+        client: true,
+        service: true,
+        package: true,
+      },
+    });
+
+    res.status(201).json({
+      id: created.id,
+      clientId: created.client_id,
+      clientName: created.client?.name,
+      packageId: created.package_id,
+      serviceId: created.service_id,
+      packageName: created.package_name,
+      totalSessions: created.total_sessions,
+      usedSessions: created.used_sessions,
+      remainingSessions: created.total_sessions,
+      pricePaid: created.price_paid,
+      status: created.status,
+      notes: created.notes || '',
+      createdAt: created.createdAt ? created.createdAt.toISOString().split('T')[0] : '',
+    });
+  } catch (err) {
+    console.error('Error creating client package:', err);
+    res.status(500).json({ error: 'Failed to create client package', details: err.message });
+  }
+});
+
+// PATCH update client package (sessions, status, notes)
+app.patch('/api/client-packages/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { usedSessions, totalSessions, status, notes } = req.body;
+
+    const existing = await prisma.clientPackage.findUnique({ where: { id } });
+    if (!existing) {
+      return res.status(404).json({ error: 'باقة العميل غير موجودة' });
+    }
+
+    const updateData = {};
+    if (typeof usedSessions === 'number') {
+      updateData.used_sessions = Math.max(0, usedSessions);
+    }
+    if (typeof totalSessions === 'number') {
+      updateData.total_sessions = Math.max(1, totalSessions);
+    }
+    if (notes !== undefined) {
+      updateData.notes = notes;
+    }
+
+    const newUsed = updateData.used_sessions !== undefined ? updateData.used_sessions : existing.used_sessions;
+    const newTotal = updateData.total_sessions !== undefined ? updateData.total_sessions : existing.total_sessions;
+
+    if (status) {
+      updateData.status = status;
+    } else if (newUsed >= newTotal) {
+      updateData.status = 'COMPLETED';
+    } else {
+      updateData.status = 'ACTIVE';
+    }
+
+    const updated = await prisma.clientPackage.update({
+      where: { id },
+      data: updateData,
+      include: { client: true, service: true, package: true },
+    });
+
+    res.json({
+      id: updated.id,
+      clientId: updated.client_id,
+      clientName: updated.client?.name,
+      packageId: updated.package_id,
+      serviceId: updated.service_id,
+      packageName: updated.package_name,
+      totalSessions: updated.total_sessions,
+      usedSessions: updated.used_sessions,
+      remainingSessions: Math.max(0, updated.total_sessions - updated.used_sessions),
+      pricePaid: updated.price_paid,
+      status: updated.status,
+      notes: updated.notes || '',
+    });
+  } catch (err) {
+    console.error('Error updating client package:', err);
+    res.status(500).json({ error: 'Failed to update client package' });
+  }
+});
+
+// DELETE client package
+app.delete('/api/client-packages/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await prisma.clientPackage.delete({
+      where: { id },
+    });
+    res.json({ success: true, message: 'تم حذف الباقة بنجاح' });
+  } catch (err) {
+    console.error('Error deleting client package:', err);
+    res.status(500).json({ error: 'Failed to delete client package' });
   }
 });
 
@@ -411,14 +725,17 @@ app.delete('/api/staff/:id', async (req, res) => {
   }
 });
 
-// 4. GET ALL CLIENTS WITH CRM METRICS (VISITS, SPENT, APPOINTMENTS, INVOICES)
+// 4. GET ALL CLIENTS WITH CRM METRICS (VISITS, SPENT, APPOINTMENTS, INVOICES, PACKAGES)
 app.get('/api/clients', async (req, res) => {
   try {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     const clients = await prisma.client.findMany({
       include: {
         appointments: {
           include: {
             service: { include: { category: true } },
+            package: true,
+            clientPackage: true,
             staff: true,
             invoice: true,
           },
@@ -426,7 +743,16 @@ app.get('/api/clients', async (req, res) => {
         },
         invoices: {
           include: {
-            appointment: { include: { service: true } },
+            appointment: {
+              include: { service: true, package: true, clientPackage: true },
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+        },
+        clientPackages: {
+          include: {
+            service: true,
+            package: true,
           },
           orderBy: { createdAt: 'desc' },
         },
@@ -451,24 +777,45 @@ app.get('/api/clients', async (req, res) => {
           totalVisits,
           totalSpent: Math.round(totalSpent * 100) / 100,
           joinDate: c.createdAt ? c.createdAt.toISOString().split('T')[0] : '',
-          appointments: (c.appointments || []).map((apt) => ({
-            id: apt.id,
-            date: apt.appointment_date.toISOString().split('T')[0],
-            time: '11:00 ص',
-            serviceName: apt.service?.name || 'جلسة',
-            categoryName: apt.service?.category?.name || 'عام',
-            staffName: apt.staff?.name || 'أخصائي',
-            status: apt.status,
-            finalPrice: apt.final_price,
-            hasInvoice: !!apt.invoice,
-          })),
-          invoices: (c.invoices || []).map((inv) => ({
-            id: inv.id,
-            invoiceNumber: `INV-${inv.id.slice(0, 8).toUpperCase()}`,
-            date: inv.createdAt.toISOString().split('T')[0],
-            amount: inv.net_amount,
-            paymentMethod: inv.payment_method,
-            serviceName: inv.appointment?.service?.name || 'جلسة',
+          appointments: (c.appointments || []).map((apt) => {
+            const aptServiceName = apt.package?.package_name || apt.service?.name || apt.clientPackage?.package_name || 'موعد';
+            const aptCatName = apt.service?.category?.name || (apt.package_id ? 'عروض وباقات' : 'عام');
+            return {
+              id: apt.id,
+              date: apt.appointment_date.toISOString().split('T')[0],
+              time: '11:00 ص',
+              serviceName: aptServiceName,
+              categoryName: aptCatName,
+              staffName: apt.staff?.name || 'أخصائي',
+              status: apt.status,
+              finalPrice: apt.final_price,
+              hasInvoice: !!apt.invoice,
+            };
+          }),
+          invoices: (c.invoices || []).map((inv) => {
+            const invServiceName = inv.appointment?.package?.package_name || inv.appointment?.service?.name || inv.appointment?.clientPackage?.package_name || 'فاتورة';
+            return {
+              id: inv.id,
+              invoiceNumber: `INV-${inv.id.slice(0, 8).toUpperCase()}`,
+              date: inv.createdAt.toISOString().split('T')[0],
+              amount: inv.net_amount,
+              paymentMethod: inv.payment_method,
+              serviceName: invServiceName,
+            };
+          }),
+          clientPackages: (c.clientPackages || []).map((cp) => ({
+            id: cp.id,
+            clientId: cp.client_id,
+            packageId: cp.package_id,
+            serviceId: cp.service_id,
+            packageName: cp.package_name || cp.package?.package_name || cp.service?.name || 'باقة جلسات',
+            totalSessions: cp.total_sessions,
+            usedSessions: cp.used_sessions,
+            remainingSessions: Math.max(0, cp.total_sessions - cp.used_sessions),
+            pricePaid: cp.price_paid,
+            status: cp.status,
+            notes: cp.notes || '',
+            createdAt: cp.createdAt ? cp.createdAt.toISOString().split('T')[0] : '',
           })),
         };
       })
@@ -507,6 +854,7 @@ app.post('/api/clients', async (req, res) => {
       joinDate: created.createdAt.toISOString().split('T')[0],
       appointments: [],
       invoices: [],
+      clientPackages: [],
     });
   } catch (err) {
     console.error('Error creating client:', err);
@@ -530,11 +878,25 @@ app.put('/api/clients/:id', async (req, res) => {
       data: dataToUpdate,
       include: {
         appointments: {
-          include: { service: { include: { category: true } }, staff: true, invoice: true },
+          include: {
+            service: { include: { category: true } },
+            package: true,
+            clientPackage: true,
+            staff: true,
+            invoice: true,
+          },
           orderBy: { appointment_date: 'desc' },
         },
         invoices: {
-          include: { appointment: { include: { service: true } } },
+          include: {
+            appointment: {
+              include: { service: true, package: true, clientPackage: true },
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+        },
+        clientPackages: {
+          include: { service: true, package: true },
           orderBy: { createdAt: 'desc' },
         },
       },
@@ -555,24 +917,45 @@ app.put('/api/clients/:id', async (req, res) => {
       totalVisits,
       totalSpent: Math.round(totalSpent * 100) / 100,
       joinDate: updated.createdAt.toISOString().split('T')[0],
-      appointments: (updated.appointments || []).map((apt) => ({
-        id: apt.id,
-        date: apt.appointment_date.toISOString().split('T')[0],
-        time: '11:00 ص',
-        serviceName: apt.service?.name || 'خدمة',
-        categoryName: apt.service?.category?.name || 'عام',
-        staffName: apt.staff?.name || 'أخصائي',
-        status: apt.status,
-        finalPrice: apt.final_price,
-        hasInvoice: !!apt.invoice,
-      })),
-      invoices: (updated.invoices || []).map((inv) => ({
-        id: inv.id,
-        invoiceNumber: `INV-${inv.id.slice(0, 8).toUpperCase()}`,
-        date: inv.createdAt.toISOString().split('T')[0],
-        amount: inv.net_amount,
-        paymentMethod: inv.payment_method,
-        serviceName: inv.appointment?.service?.name || 'جلسة',
+      appointments: (updated.appointments || []).map((apt) => {
+        const aptServiceName = apt.package?.package_name || apt.service?.name || apt.clientPackage?.package_name || 'موعد';
+        const aptCatName = apt.service?.category?.name || (apt.package_id ? 'عروض وباقات' : 'عام');
+        return {
+          id: apt.id,
+          date: apt.appointment_date.toISOString().split('T')[0],
+          time: '11:00 ص',
+          serviceName: aptServiceName,
+          categoryName: aptCatName,
+          staffName: apt.staff?.name || 'أخصائي',
+          status: apt.status,
+          finalPrice: apt.final_price,
+          hasInvoice: !!apt.invoice,
+        };
+      }),
+      invoices: (updated.invoices || []).map((inv) => {
+        const invServiceName = inv.appointment?.package?.package_name || inv.appointment?.service?.name || inv.appointment?.clientPackage?.package_name || 'فاتورة';
+        return {
+          id: inv.id,
+          invoiceNumber: `INV-${inv.id.slice(0, 8).toUpperCase()}`,
+          date: inv.createdAt.toISOString().split('T')[0],
+          amount: inv.net_amount,
+          paymentMethod: inv.payment_method,
+          serviceName: invServiceName,
+        };
+      }),
+      clientPackages: (updated.clientPackages || []).map((cp) => ({
+        id: cp.id,
+        clientId: cp.client_id,
+        packageId: cp.package_id,
+        serviceId: cp.service_id,
+        packageName: cp.package_name || cp.package?.package_name || cp.service?.name || 'باقة جلسات',
+        totalSessions: cp.total_sessions,
+        usedSessions: cp.used_sessions,
+        remainingSessions: Math.max(0, cp.total_sessions - cp.used_sessions),
+        pricePaid: cp.price_paid,
+        status: cp.status,
+        notes: cp.notes || '',
+        createdAt: cp.createdAt ? cp.createdAt.toISOString().split('T')[0] : '',
       })),
     });
   } catch (err) {
@@ -606,33 +989,146 @@ app.delete('/api/clients/:id', async (req, res) => {
 // 5. GET ALL APPOINTMENTS
 app.get('/api/appointments', async (req, res) => {
   try {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    const { status, date } = req.query;
+
+    const where = {};
+
+    // Remove any hidden default date filters or limits!
+    // If status filter is "All" or "الكل" or empty, return ALL appointments!
+    if (status && status !== 'All' && status !== 'الكل' && status !== 'all') {
+      if (status === 'Pending' || status === 'قيد الانتظار') {
+        where.status = { in: ['Pending', 'قيد الانتظار'] };
+      } else if (status === 'Confirmed' || status === 'مؤكد') {
+        where.status = { in: ['Confirmed', 'مؤكد'] };
+      } else if (status === 'Completed' || status === 'مكتمل') {
+        where.status = { in: ['Completed', 'مكتمل'] };
+      } else if (status === 'Cancelled' || status === 'ملغي') {
+        where.status = { in: ['Cancelled', 'ملغي'] };
+      } else {
+        where.status = status;
+      }
+    }
+
+    // Only filter by date if explicitly passed and valid
+    if (date && date !== 'All' && date !== 'الكل' && date !== 'all') {
+      const parsed = new Date(date);
+      if (!isNaN(parsed.getTime())) {
+        const startOfDay = new Date(parsed);
+        startOfDay.setUTCHours(0, 0, 0, 0);
+        const endOfDay = new Date(parsed);
+        endOfDay.setUTCHours(23, 59, 59, 999);
+        where.appointment_date = {
+          gte: startOfDay,
+          lte: endOfDay,
+        };
+      }
+    }
+
+    // Completely unrestricted findMany: No hidden limits, no default date constraints
     const appointments = await prisma.appointment.findMany({
+      where,
       include: {
         client: true,
         staff: true,
         service: {
           include: { category: true },
         },
+        package: true,
+        clientPackage: true,
+        invoice: true,
+        consumables: {
+          include: { product: true },
+        },
       },
       orderBy: { appointment_date: 'desc' },
     });
 
     res.json(
-      appointments.map((a) => ({
-        id: a.id,
-        clientName: a.client?.name || 'غير معروف',
-        clientPhone: a.client?.phone || '',
-        staffName: a.staff?.name || 'غير محدد',
-        serviceName: a.service?.name || 'خدمة محددة',
-        categoryName: a.service?.category?.name || 'عام',
-        appointmentDate: a.appointment_date.toISOString().split('T')[0],
-        time: a.appointment_date.toLocaleTimeString('ar-EG', {
-          hour: '2-digit',
-          minute: '2-digit',
-        }),
-        status: a.status,
-        finalPrice: a.final_price,
-      }))
+      appointments.map((a) => {
+        let normalizedStatus = a.status || 'قيد الانتظار';
+        if (normalizedStatus === 'Pending') normalizedStatus = 'قيد الانتظار';
+        else if (normalizedStatus === 'Confirmed') normalizedStatus = 'مؤكد';
+        else if (normalizedStatus === 'Completed') normalizedStatus = 'مكتمل';
+        else if (normalizedStatus === 'Cancelled') normalizedStatus = 'ملغي';
+
+        let aptDate = '';
+        let aptTime = '';
+        if (a.appointment_date) {
+          try {
+            const d = new Date(a.appointment_date);
+            if (!isNaN(d.getTime())) {
+              aptDate = d.toISOString().split('T')[0];
+              aptTime = d.toLocaleTimeString('ar-EG', {
+                hour: '2-digit',
+                minute: '2-digit',
+              });
+            }
+          } catch {
+            aptDate = '';
+            aptTime = '';
+          }
+        }
+
+        const resolvedItemName = a.service?.name || a.package?.package_name || a.clientPackage?.package_name || 'خدمة غير محددة';
+        const resolvedCategoryName = a.service?.category?.name || (a.package_id ? 'عروض وباقات' : 'عام');
+
+        const consumablesTotal = (a.consumables || []).reduce((sum, c) => sum + (parseFloat(c.priceCharged) || 0), 0);
+        const totalAptPrice = typeof a.final_price === 'number' ? a.final_price : Number(a.final_price) || 0;
+        const baseSessionPrice = Math.max(0, Math.round((totalAptPrice - consumablesTotal) * 100) / 100);
+
+        let invoiceData = null;
+        if (a.invoice) {
+          invoiceData = {
+            invoiceId: a.invoice.id,
+            invoiceNumber: `INV-${a.invoice.id.slice(0, 8).toUpperCase()}`,
+            appointmentId: a.id,
+            clientName: a.client?.name || 'عميل غير مسجل',
+            clientPhone: a.client?.phone || '',
+            serviceName: resolvedItemName,
+            basePrice: baseSessionPrice,
+            consumablesPrice: consumablesTotal,
+            totalAmount: Number(a.invoice.total_amount) || totalAptPrice,
+            discountApplied: Number(a.invoice.discount_applied) || 0,
+            netAmount: Number(a.invoice.net_amount) || totalAptPrice,
+            paymentMethod: a.invoice.payment_method || 'كاش',
+            createdAt: a.invoice.createdAt ? a.invoice.createdAt.toISOString() : new Date().toISOString(),
+            items: (a.consumables || []).map((c) => ({
+              id: c.productId,
+              name: c.product?.item_name || 'مستهلك إضافي',
+              price: c.priceCharged,
+              quantity: c.quantity,
+              chargeToClient: true,
+            })),
+          };
+        }
+
+        return {
+          id: a.id,
+          clientName: a.client?.name || 'عميل غير مسجل',
+          clientPhone: a.client?.phone || '',
+          staffName: a.staff?.name || 'غير محدد',
+          serviceName: resolvedItemName,
+          categoryName: resolvedCategoryName,
+          appointmentDate: aptDate,
+          time: aptTime,
+          status: normalizedStatus,
+          basePrice: baseSessionPrice,
+          totalConsumablesPrice: consumablesTotal,
+          finalPrice: totalAptPrice,
+          clientPackageId: a.client_package_id || null,
+          packageName: a.clientPackage?.package_name || a.package?.package_name || null,
+          isPackageSession: !!a.client_package_id && (Number(a.final_price) === 0),
+          consumables: (a.consumables || []).map((c) => ({
+            id: c.id,
+            productId: c.productId,
+            productName: c.product?.item_name || 'مستهلك غير معروف',
+            quantity: c.quantity,
+            priceCharged: c.priceCharged,
+          })),
+          invoice: invoiceData,
+        };
+      })
     );
   } catch (err) {
     console.error('Error fetching appointments:', err);
@@ -640,80 +1136,520 @@ app.get('/api/appointments', async (req, res) => {
   }
 });
 
-// 6. CREATE NEW APPOINTMENT (With database persistence!)
+// 6. CREATE NEW APPOINTMENT (With POS Automated Package Assignment!)
 app.post('/api/appointments', async (req, res) => {
   try {
     const {
       clientId,
+      clientName,
+      clientPhone,
       newClientName,
       newClientPhone,
       staffId,
-      serviceId,
+      packageId: explicitPackageId,
+      serviceId: explicitServiceId,
+      itemType,
+      itemId,
+      itemCompositeId,
       appointmentDate,
       time,
       status = 'مؤكد',
-      finalPrice,
+      finalPrice: requestedFinalPrice,
+      consumables = [],
     } = req.body;
 
-    let targetClientId = clientId;
+    // ── Determine target packageId or serviceId ──────────────────────────────
+    let packageId = null;
+    let serviceId = null;
 
-    // If new client specified
-    if (!targetClientId && newClientName) {
-      let existingClient = await prisma.client.findFirst({
-        where: { phone: newClientPhone },
+    if (explicitPackageId && String(explicitPackageId).trim() !== '' && explicitPackageId !== 'null') {
+      packageId = String(explicitPackageId).trim();
+    } else if (explicitServiceId && String(explicitServiceId).trim() !== '' && explicitServiceId !== 'null') {
+      serviceId = String(explicitServiceId).trim();
+    } else if (itemType === 'package' && itemId) {
+      packageId = String(itemId).trim();
+    } else if (itemType === 'service' && itemId) {
+      serviceId = String(itemId).trim();
+    } else if (itemCompositeId) {
+      if (itemCompositeId.startsWith('package_')) {
+        packageId = itemCompositeId.replace('package_', '').trim();
+      } else if (itemCompositeId.startsWith('service_')) {
+        serviceId = itemCompositeId.replace('service_', '').trim();
+      }
+    }
+
+    if (!packageId && !serviceId) {
+      return res.status(400).json({ error: 'يجب اختيار خدمة أو باقة صالحة' });
+    }
+
+    // ── Resolve client with guaranteed DB verification (Prevents P2003) ───────
+    let targetClient = null;
+
+    if (clientId) {
+      targetClient = await prisma.client.findUnique({
+        where: { id: clientId },
       });
+    }
 
-      if (!existingClient) {
-        existingClient = await prisma.client.create({
+    const candidatePhone = (clientPhone || newClientPhone || '').trim();
+    const candidateName = (clientName || newClientName || '').trim();
+
+    if (!targetClient && candidatePhone) {
+      targetClient = await prisma.client.findFirst({
+        where: { phone: candidatePhone },
+      });
+    }
+
+    if (!targetClient && candidateName) {
+      targetClient = await prisma.client.findFirst({
+        where: { name: candidateName },
+      });
+    }
+
+    if (!targetClient && (newClientName || candidateName)) {
+      targetClient = await prisma.client.create({
+        data: {
+          name: (newClientName || candidateName).trim(),
+          phone: candidatePhone || '01000000000',
+          loyalty_points: 10,
+        },
+      });
+    }
+
+    if (!targetClient) {
+      targetClient = await prisma.client.findFirst();
+      if (!targetClient) {
+        targetClient = await prisma.client.create({
           data: {
-            name: newClientName,
-            phone: newClientPhone || '01000000000',
+            name: candidateName || 'عميل مسجل',
+            phone: candidatePhone || '01000000000',
             loyalty_points: 10,
           },
         });
       }
-      targetClientId = existingClient.id;
     }
 
-    if (!targetClientId) {
-      return res.status(400).json({ error: 'العميل مطلوب' });
+    const targetClientId = targetClient.id;
+
+    // ── Resolve staff with guaranteed DB existence (Prevents P2003) ───────────
+    let targetStaff = null;
+    if (staffId) {
+      targetStaff = await prisma.staff.findUnique({ where: { id: staffId } });
+    }
+    if (!targetStaff) {
+      targetStaff = await prisma.staff.findFirst();
+      if (!targetStaff) {
+        targetStaff = await prisma.staff.create({
+          data: {
+            name: 'الأخصائي المعالج',
+            specialty: 'عام',
+            commission_type: 'نسبة',
+            commission_value: 30,
+          },
+        });
+      }
+    }
+    const resolvedStaffId = targetStaff.id;
+
+    // ── Bulletproof Package or Service Handling ─────────────────────────────────
+    let resolvedItemName = '';
+    let resolvedCategoryName = 'عام';
+    let effectivePrice = 0;
+    let resolvedClientPackageId = null;
+    let autoCreatedPackage = false;
+    let isPackageBooking = false;
+
+    if (packageId) {
+      // 1. Fetch the exact Package from DB
+      isPackageBooking = true;
+      const pkg = await prisma.package.findUnique({
+        where: { id: packageId },
+      });
+
+      if (!pkg) {
+        return res.status(404).json({ error: 'الباقة المختارة غير موجودة في قاعدة البيانات' });
+      }
+
+      // Real Package Name & Real Price — NEVER fallback to generic string like "جلسة"
+      resolvedItemName = pkg.package_name;
+      resolvedCategoryName = 'عروض وباقات';
+
+      let totalSessions = pkg.sessions_count || 1;
+      // If sessions_count was default 1, check if name has a number (e.g., "عرض 8 جلسات" -> 8)
+      if (totalSessions <= 1 && pkg.package_name) {
+        const match = pkg.package_name.match(/(\d+)\s*جلس/);
+        if (match && match[1]) {
+          totalSessions = parseInt(match[1], 10);
+        } else if (pkg.package_name.includes('عرض') || pkg.package_name.includes('باكدج') || pkg.package_name.includes('باقة')) {
+          totalSessions = 6;
+        }
+      }
+
+      // Update package in DB so future lookups have the correct sessions_count
+      if (totalSessions > 1 && (pkg.sessions_count || 1) <= 1) {
+        try {
+          await prisma.package.update({
+            where: { id: pkg.id },
+            data: { sessions_count: totalSessions },
+          });
+        } catch (_) {}
+      }
+
+      const realPackagePrice = pkg.fixed_price != null ? pkg.fixed_price : (parseFloat(requestedFinalPrice) || 0);
+
+      // Check if client ALREADY has an active ClientPackage for this packageId
+      const existingActivePkg = await prisma.clientPackage.findFirst({
+        where: {
+          client_id: targetClientId,
+          package_id: packageId,
+          status: 'ACTIVE',
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      if (existingActivePkg && existingActivePkg.used_sessions < existingActivePkg.total_sessions) {
+        // ── SCENARIO B: Deduct from existing active package ───────────────────
+        resolvedClientPackageId = existingActivePkg.id;
+        effectivePrice = 0; // Prepaid — this visit costs 0 EGP
+
+        const newUsed = existingActivePkg.used_sessions + 1;
+        const newStatus = newUsed >= existingActivePkg.total_sessions ? 'COMPLETED' : 'ACTIVE';
+
+        await prisma.clientPackage.update({
+          where: { id: existingActivePkg.id },
+          data: {
+            used_sessions: newUsed,
+            status: newStatus,
+          },
+        });
+
+        console.log(`[POS Package Deduct] Client ${targetClientId} deducted 1 session from ${pkg.package_name}. Used: ${newUsed}/${existingActivePkg.total_sessions}`);
+      } else {
+        // ── SCENARIO A: CREATE the ClientPackage record explicitly linked ────
+        const newClientPkg = await prisma.clientPackage.create({
+          data: {
+            client_id: targetClientId,
+            package_id: packageId,
+            service_id: null,
+            package_name: pkg.package_name,
+            total_sessions: totalSessions,
+            used_sessions: 1, // First visit counts as session 1
+            price_paid: realPackagePrice,
+            status: totalSessions > 1 ? 'ACTIVE' : 'COMPLETED',
+            notes: 'تم تفعيل الباقة تلقائياً عبر حجز الموعد',
+          },
+        });
+
+        resolvedClientPackageId = newClientPkg.id;
+        effectivePrice = realPackagePrice;
+        autoCreatedPackage = true;
+
+        console.log(`[POS Package Create] Created ClientPackage ${newClientPkg.id} for client ${targetClientId}: ${pkg.package_name} (${totalSessions} sessions, used: 1)`);
+      }
+    } else if (serviceId) {
+      // 2. Fetch the exact Service from DB
+      const srv = await prisma.service.findUnique({
+        where: { id: serviceId },
+        include: { category: true },
+      });
+
+      if (!srv) {
+        return res.status(404).json({ error: 'الخدمة المختارة غير موجودة في قاعدة البيانات' });
+      }
+
+      resolvedItemName = srv.name;
+      resolvedCategoryName = srv.category?.name || 'عام';
+      const srvSessionsCount = Math.max(1, srv.sessions_count || 1);
+      const srvPrice = srv.min_price != null ? srv.min_price : (parseFloat(requestedFinalPrice) || 0);
+
+      if (srvSessionsCount > 1) {
+        // Multi-session service behaves like a package
+        const existingActivePkg = await prisma.clientPackage.findFirst({
+          where: {
+            client_id: targetClientId,
+            service_id: serviceId,
+            status: 'ACTIVE',
+          },
+          orderBy: { createdAt: 'desc' },
+        });
+
+        if (existingActivePkg && existingActivePkg.used_sessions < existingActivePkg.total_sessions) {
+          resolvedClientPackageId = existingActivePkg.id;
+          effectivePrice = 0;
+          const newUsed = existingActivePkg.used_sessions + 1;
+          const newStatus = newUsed >= existingActivePkg.total_sessions ? 'COMPLETED' : 'ACTIVE';
+
+          await prisma.clientPackage.update({
+            where: { id: existingActivePkg.id },
+            data: { used_sessions: newUsed, status: newStatus },
+          });
+        } else {
+          const newClientPkg = await prisma.clientPackage.create({
+            data: {
+              client_id: targetClientId,
+              service_id: serviceId,
+              package_id: null,
+              package_name: `باقة ${srv.name} (${srvSessionsCount} جلسات)`,
+              total_sessions: srvSessionsCount,
+              used_sessions: 1,
+              price_paid: srvPrice,
+              status: 'ACTIVE',
+              notes: 'تم إنشاء باقة الخدمة تلقائياً عبر حجز الموعد',
+            },
+          });
+
+          resolvedClientPackageId = newClientPkg.id;
+          effectivePrice = srvPrice;
+          autoCreatedPackage = true;
+        }
+      } else {
+        effectivePrice = srvPrice;
+        resolvedClientPackageId = null;
+      }
     }
 
-    // Resolve date and time
-    const dateTimeString = `${appointmentDate}T${time || '10:00'}:00.000Z`;
-    const parsedDate = new Date(dateTimeString);
-    const validDate = isNaN(parsedDate.getTime()) ? new Date() : parsedDate;
+    // ── Safe date parsing ───────────────────────────────────────────────────────
+    let validDate = new Date();
+    if (appointmentDate) {
+      const parts = appointmentDate.split('-');
+      if (parts.length === 3) {
+        const y = parseInt(parts[0], 10);
+        const m = parseInt(parts[1], 10) - 1;
+        const d = parseInt(parts[2], 10);
+        validDate = new Date(Date.UTC(y, m, d, 9, 0, 0));
+      }
+    }
 
-    // Create Appointment in PostgreSQL
-    const created = await prisma.appointment.create({
+    // ── Process Consumables (Add-ons charged to client) ─────────────────────────
+    const validConsumables = [];
+    let consumablesTotal = 0;
+    if (Array.isArray(consumables) && consumables.length > 0) {
+      for (const item of consumables) {
+        if (!item || !item.productId) continue;
+        const qty = parseFloat(item.quantity) || 1;
+        if (qty <= 0) continue;
+        const prod = await prisma.inventoryItem.findUnique({
+          where: { id: String(item.productId) },
+        });
+        if (prod) {
+          const unitSellingPrice = prod.selling_price || 0;
+          const linePrice = unitSellingPrice * qty;
+          consumablesTotal += linePrice;
+          validConsumables.push({
+            productId: prod.id,
+            productName: prod.item_name,
+            quantity: qty,
+            priceCharged: linePrice,
+            unitCost: prod.unit_cost || 0,
+            sellingPrice: unitSellingPrice,
+          });
+        }
+      }
+    }
+
+    const baseServicePrice = effectivePrice;
+    const totalConsumablesPrice = consumablesTotal;
+    const finalAppointmentPrice = baseServicePrice + totalConsumablesPrice;
+
+    // ── Calculate Doctor's Commission (Strictly on base service price ONLY) ────
+    const staffCommType = targetStaff.commission_type || 'نسبة';
+    const staffCommValue = parseFloat(targetStaff.commission_value) || 0;
+    const isPercentage = staffCommType === 'نسبة' || staffCommType.includes('%') || staffCommType.toLowerCase() === 'percentage';
+
+    let doctorCommission = 0;
+    if (isPercentage) {
+      doctorCommission = Math.round(((baseServicePrice * staffCommValue) / 100) * 100) / 100;
+    } else {
+      doctorCommission = baseServicePrice;
+    }
+
+    // ── Create Appointment & Auto-Revenue in DB ────────────────────────────────
+    let created = null;
+
+    if (finalAppointmentPrice > 0) {
+      const clientDisplayName = targetClient.name || clientName || newClientName || 'عميل مسجل';
+      const revenueDesc = `حجز: ${resolvedItemName}${validConsumables.length > 0 ? ` (+ مستهلكات: ${totalConsumablesPrice} ج.م)` : ''} - العميل: ${clientDisplayName}`;
+
+      created = await prisma.$transaction(async (tx) => {
+        const rev = await tx.revenue.create({
+          data: {
+            amount: finalAppointmentPrice,
+            date: validDate,
+            category: 'حجوزات وباقات',
+            description: revenueDesc,
+            source: 'APPOINTMENT',
+          },
+        });
+
+        const apt = await tx.appointment.create({
+          data: {
+            client_id: targetClientId,
+            staff_id: resolvedStaffId,
+            package_id: packageId ? packageId : null,
+            service_id: serviceId ? serviceId : null,
+            client_package_id: resolvedClientPackageId ? resolvedClientPackageId : null,
+            revenueId: rev.id,
+            appointment_date: validDate,
+            status: status,
+            final_price: finalAppointmentPrice,
+          },
+          include: {
+            client: true,
+            staff: true,
+            service: { include: { category: true } },
+            package: true,
+            clientPackage: true,
+            revenue: true,
+          },
+        });
+
+        // Decrement inventory stock & create AppointmentConsumable records
+        for (const c of validConsumables) {
+          await tx.inventoryItem.update({
+            where: { id: c.productId },
+            data: {
+              quantity_in_stock: { decrement: c.quantity },
+            },
+          });
+          await tx.appointmentConsumable.create({
+            data: {
+              appointmentId: apt.id,
+              productId: c.productId,
+              quantity: c.quantity,
+              priceCharged: c.priceCharged,
+            },
+          });
+        }
+
+        await tx.revenue.update({
+          where: { id: rev.id },
+          data: { referenceId: apt.id },
+        });
+
+        return apt;
+      });
+    } else {
+      // 0 EGP Session (Scenario B / active package deduction with 0 consumables charge)
+      created = await prisma.$transaction(async (tx) => {
+        const apt = await tx.appointment.create({
+          data: {
+            client_id: targetClientId,
+            staff_id: resolvedStaffId,
+            package_id: packageId ? packageId : null,
+            service_id: serviceId ? serviceId : null,
+            client_package_id: resolvedClientPackageId ? resolvedClientPackageId : null,
+            revenueId: null,
+            appointment_date: validDate,
+            status: status,
+            final_price: finalAppointmentPrice,
+          },
+          include: {
+            client: true,
+            staff: true,
+            service: {
+              include: { category: true },
+            },
+            package: true,
+            clientPackage: true,
+          },
+        });
+
+        for (const c of validConsumables) {
+          await tx.inventoryItem.update({
+            where: { id: c.productId },
+            data: {
+              quantity_in_stock: { decrement: c.quantity },
+            },
+          });
+          await tx.appointmentConsumable.create({
+            data: {
+              appointmentId: apt.id,
+              productId: c.productId,
+              quantity: c.quantity,
+              priceCharged: c.priceCharged,
+            },
+          });
+        }
+
+        return apt;
+      });
+    }
+
+    // ── Create Invoice in DB ───────────────────────────────────────────────────
+    const invoicePaymentMethod = finalAppointmentPrice === 0 ? 'باقة مسبقة الدفع' : 'كاش';
+    const createdInvoice = await prisma.invoice.create({
       data: {
         client_id: targetClientId,
-        staff_id: staffId,
-        service_id: serviceId,
-        appointment_date: validDate,
-        status: status,
-        final_price: parseFloat(finalPrice) || 0,
-      },
-      include: {
-        client: true,
-        staff: true,
-        service: {
-          include: { category: true },
-        },
+        appointment_id: created.id,
+        total_amount: finalAppointmentPrice,
+        discount_applied: 0,
+        net_amount: finalAppointmentPrice,
+        payment_method: invoicePaymentMethod,
       },
     });
 
+    const invoiceItems = [
+      ...(baseServicePrice > 0 || isPackageBooking
+        ? [
+            {
+              id: isPackageBooking ? (packageId || 'pkg') : (serviceId || 'srv'),
+              name: resolvedItemName,
+              price: baseServicePrice,
+              quantity: 1,
+              chargeToClient: true,
+            },
+          ]
+        : []),
+      ...validConsumables.map((c) => ({
+        id: c.productId,
+        name: c.productName,
+        price: c.priceCharged,
+        quantity: c.quantity,
+        chargeToClient: true,
+      })),
+    ];
+
+    const invoiceData = {
+      invoiceId: createdInvoice.id,
+      invoiceNumber: `INV-${createdInvoice.id.slice(0, 8).toUpperCase()}`,
+      appointmentId: created.id,
+      clientName: created.client?.name || 'عميل مسجل',
+      clientPhone: created.client?.phone || '',
+      serviceName: resolvedItemName,
+      basePrice: baseServicePrice,
+      consumablesPrice: totalConsumablesPrice,
+      doctorCommission: doctorCommission,
+      doctorCommissionPercentage: staffCommValue,
+      totalAmount: finalAppointmentPrice,
+      discountApplied: 0,
+      netAmount: finalAppointmentPrice,
+      paymentMethod: invoicePaymentMethod,
+      createdAt: new Date().toISOString(),
+      items: invoiceItems,
+    };
+
+    // ── Return Complete Live Object to Frontend ────────────────────────────────
     res.status(201).json({
       id: created.id,
-      clientName: created.client?.name,
-      clientPhone: created.client?.phone,
-      staffName: created.staff?.name,
-      serviceName: created.service?.name,
-      categoryName: created.service?.category?.name || 'عام',
-      appointmentDate: created.appointment_date.toISOString().split('T')[0],
+      clientName: created.client?.name || 'عميل مسجل',
+      clientPhone: created.client?.phone || '',
+      staffName: created.staff?.name || 'الأخصائي المعالج',
+      serviceName: resolvedItemName,
+      categoryName: resolvedCategoryName,
+      appointmentDate: appointmentDate || created.appointment_date.toISOString().split('T')[0],
       time: time || '11:00 صباحاً',
       status: created.status,
+      basePrice: baseServicePrice,
+      totalConsumablesPrice: totalConsumablesPrice,
       finalPrice: created.final_price,
+      doctorCommission: doctorCommission,
+      doctorCommissionPercentage: staffCommValue,
+      clientPackageId: created.client_package_id || null,
+      packageName: isPackageBooking ? resolvedItemName : (created.clientPackage?.package_name || null),
+      isPackageSession: !!created.client_package_id && (Number(created.final_price) === 0),
+      autoCreatedPackage,
+      consumables: validConsumables,
+      invoice: invoiceData,
     });
   } catch (err) {
     console.error('Error creating appointment:', err);
@@ -726,14 +1662,86 @@ app.patch('/api/appointments/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const { status } = req.body;
+
+    const oldAppointment = await prisma.appointment.findUnique({
+      where: { id },
+      include: { clientPackage: true },
+    });
+
+    if (!oldAppointment) {
+      return res.status(404).json({ error: 'الحجز غير موجود' });
+    }
+
     const updated = await prisma.appointment.update({
       where: { id },
       data: { status },
+      include: {
+        client: true,
+        staff: true,
+        service: {
+          include: { category: true },
+        },
+        clientPackage: true,
+        invoice: true,
+      },
     });
+
+    // Auto-increment client package session if transitioning to Completed
+    const isBecomingCompleted = (status === 'Completed' || status === 'مكتمل') &&
+                                (oldAppointment.status !== 'Completed' && oldAppointment.status !== 'مكتمل');
+    if (isBecomingCompleted && oldAppointment.client_package_id) {
+      // Only increment if this was a subsequent deduction visit (final_price === 0).
+      // The initial package purchase visit (final_price > 0) already initialized used_sessions to 1 upon creation!
+      if (oldAppointment.final_price === 0) {
+        await handlePackageDeductionOnCompletion(id);
+      }
+    }
+
     res.json(updated);
   } catch (err) {
     console.error('Error updating appointment:', err);
     res.status(500).json({ error: 'Failed to update appointment' });
+  }
+});
+
+// 8. DELETE APPOINTMENT
+app.delete('/api/appointments/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Check if appointment exists
+    const existing = await prisma.appointment.findUnique({
+      where: { id },
+    });
+
+    if (!existing) {
+      return res.status(404).json({ error: 'الحجز غير موجود أو تم حذفه مسبقاً' });
+    }
+
+    // Cascade delete any related invoices first to prevent foreign key constraint violations
+    await prisma.invoice.deleteMany({
+      where: { appointment_id: id },
+    });
+
+    // Delete associated revenue record if one was created for this appointment
+    if (existing.revenueId) {
+      await prisma.revenue.deleteMany({
+        where: { id: existing.revenueId },
+      });
+    }
+    await prisma.revenue.deleteMany({
+      where: { referenceId: id },
+    });
+
+    // Delete the appointment record
+    await prisma.appointment.delete({
+      where: { id },
+    });
+
+    res.json({ success: true, message: 'تم حذف الحجز بنجاح' });
+  } catch (err) {
+    console.error('Error deleting appointment:', err);
+    res.status(500).json({ error: 'فشل حذف الحجز', details: err.message });
   }
 });
 
@@ -748,6 +1756,7 @@ app.get('/api/inventory', async (req, res) => {
         id: it.id,
         name: it.item_name,
         unitCost: it.unit_cost,
+        sellingPrice: it.selling_price || 0,
         quantityInStock: it.quantity_in_stock,
         unitType: it.unit_type,
       }))
@@ -761,13 +1770,14 @@ app.get('/api/inventory', async (req, res) => {
 // 9.1 CREATE INVENTORY ITEM
 app.post('/api/inventory', async (req, res) => {
   try {
-    const { name, unitCost, quantityInStock, unitType = 'قطعة' } = req.body;
+    const { name, unitCost, sellingPrice = 0, quantityInStock, unitType = 'قطعة' } = req.body;
     if (!name) return res.status(400).json({ error: 'اسم المنتج مطلوب' });
 
     const created = await prisma.inventoryItem.create({
       data: {
         item_name: name,
         unit_cost: parseFloat(unitCost) || 0,
+        selling_price: parseFloat(sellingPrice) || 0,
         quantity_in_stock: parseFloat(quantityInStock) || 0,
         unit_type: unitType,
       },
@@ -777,6 +1787,7 @@ app.post('/api/inventory', async (req, res) => {
       id: created.id,
       name: created.item_name,
       unitCost: created.unit_cost,
+      sellingPrice: created.selling_price,
       quantityInStock: created.quantity_in_stock,
       unitType: created.unit_type,
     });
@@ -790,7 +1801,7 @@ app.post('/api/inventory', async (req, res) => {
 app.patch('/api/inventory/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { quantityInStock, quantityToAdd, unitCost, name } = req.body;
+    const { quantityInStock, quantityToAdd, unitCost, sellingPrice, name } = req.body;
 
     const dataToUpdate = {};
     if (quantityInStock !== undefined) {
@@ -799,6 +1810,7 @@ app.patch('/api/inventory/:id', async (req, res) => {
       dataToUpdate.quantity_in_stock = { increment: parseFloat(quantityToAdd) };
     }
     if (unitCost !== undefined) dataToUpdate.unit_cost = parseFloat(unitCost);
+    if (sellingPrice !== undefined) dataToUpdate.selling_price = parseFloat(sellingPrice);
     if (name !== undefined) dataToUpdate.item_name = name;
 
     const updated = await prisma.inventoryItem.update({
@@ -810,6 +1822,7 @@ app.patch('/api/inventory/:id', async (req, res) => {
       id: updated.id,
       name: updated.item_name,
       unitCost: updated.unit_cost,
+      sellingPrice: updated.selling_price,
       quantityInStock: updated.quantity_in_stock,
       unitType: updated.unit_type,
     });
@@ -833,6 +1846,115 @@ app.delete('/api/inventory/:id', async (req, res) => {
   }
 });
 
+// 9.4 INTERNAL DISPATCH (Clinic Internal Consumption -> Inventory Decrement + Expense Entry)
+app.post('/api/inventory/dispatch', async (req, res) => {
+  try {
+    const { productId, quantity, notes } = req.body;
+    if (!productId) {
+      return res.status(400).json({ error: 'يجب تحديد المنتج المصروف' });
+    }
+    const qty = parseFloat(quantity) || 1;
+    if (qty <= 0) {
+      return res.status(400).json({ error: 'الكمية يجب أن تكون أكبر من صفر' });
+    }
+
+    const product = await prisma.inventoryItem.findUnique({
+      where: { id: productId },
+    });
+    if (!product) {
+      return res.status(404).json({ error: 'المنتج غير موجود في المخزن' });
+    }
+
+    const totalCost = (product.unit_cost || 0) * qty;
+
+    const result = await prisma.$transaction(async (tx) => {
+      // 1. Decrement stock
+      const updatedProduct = await tx.inventoryItem.update({
+        where: { id: productId },
+        data: {
+          quantity_in_stock: { decrement: qty },
+        },
+      });
+
+      // 2. Create InternalDispatch record
+      const dispatch = await tx.internalDispatch.create({
+        data: {
+          productId,
+          quantity: qty,
+          totalCost,
+          notes: notes || null,
+          date: new Date(),
+        },
+        include: {
+          product: true,
+        },
+      });
+
+      // 3. Create Expense record (linked to clinic operating consumables)
+      const expenseNotes = `إذن صرف مستهلكات: ${product.item_name} (كمية: ${qty} ${product.unit_type || 'قطعة'})${notes ? ` - ${notes}` : ''}`;
+      const expense = await tx.expense.create({
+        data: {
+          expense_type: 'مستهلكات تشغيل العيادة',
+          amount: totalCost,
+          notes: expenseNotes,
+          expense_date: new Date(),
+        },
+      });
+
+      return { dispatch, updatedProduct, expense };
+    });
+
+    res.status(201).json({
+      success: true,
+      dispatch: {
+        id: result.dispatch.id,
+        productId: result.dispatch.productId,
+        productName: result.dispatch.product?.item_name || product.item_name,
+        unitType: product.unit_type || 'قطعة',
+        quantity: result.dispatch.quantity,
+        unitCost: product.unit_cost || 0,
+        totalCost: result.dispatch.totalCost,
+        date: result.dispatch.date,
+        notes: result.dispatch.notes,
+      },
+      updatedStock: result.updatedProduct.quantity_in_stock,
+      expenseId: result.expense.id,
+    });
+  } catch (err) {
+    console.error('Error dispatching inventory:', err);
+    res.status(500).json({ error: 'فشل صرف المستهلكات', details: err.message });
+  }
+});
+
+// 9.5 GET INTERNAL DISPATCHES HISTORY
+app.get('/api/inventory/dispatches', async (req, res) => {
+  try {
+    const dispatches = await prisma.internalDispatch.findMany({
+      orderBy: { date: 'desc' },
+      include: {
+        product: true,
+      },
+    });
+
+    res.json(
+      dispatches.map((d) => ({
+        id: d.id,
+        productId: d.productId,
+        productName: d.product?.item_name || 'غير معروف',
+        unitType: d.product?.unit_type || 'قطعة',
+        quantity: d.quantity,
+        unitCost: d.product?.unit_cost || 0,
+        totalCost: d.totalCost,
+        date: d.date,
+        notes: d.notes,
+      }))
+    );
+  } catch (err) {
+    console.error('Error fetching internal dispatches:', err);
+    res.status(500).json({ error: 'فشل جلب أذونات الصرف' });
+  }
+});
+
 // 10. CREATE INVOICE & COMPLETE APPOINTMENT
 app.post('/api/invoices', async (req, res) => {
   try {
@@ -849,7 +1971,7 @@ app.post('/api/invoices', async (req, res) => {
     // Check if appointment exists
     const appointment = await prisma.appointment.findUnique({
       where: { id: appointmentId },
-      include: { client: true, service: true },
+      include: { client: true, service: true, package: true, clientPackage: true, revenue: true, consumables: true },
     });
 
     if (!appointment) {
@@ -857,6 +1979,9 @@ app.post('/api/invoices', async (req, res) => {
     }
 
     const resolvedClientId = clientId || appointment.client_id;
+    const finalTotal = parseFloat(totalAmount) || 0;
+    const finalDiscount = parseFloat(discountApplied) || 0;
+    const finalNet = parseFloat(netAmount) || 0;
 
     // Check if invoice already exists for this appointment
     let invoice = await prisma.invoice.findUnique({
@@ -867,9 +1992,9 @@ app.post('/api/invoices', async (req, res) => {
       invoice = await prisma.invoice.update({
         where: { id: invoice.id },
         data: {
-          total_amount: parseFloat(totalAmount) || 0,
-          discount_applied: parseFloat(discountApplied) || 0,
-          net_amount: parseFloat(netAmount) || 0,
+          total_amount: finalTotal,
+          discount_applied: finalDiscount,
+          net_amount: finalNet,
           payment_method: paymentMethod,
         },
       });
@@ -878,25 +2003,57 @@ app.post('/api/invoices', async (req, res) => {
         data: {
           client_id: resolvedClientId,
           appointment_id: appointmentId,
-          total_amount: parseFloat(totalAmount) || 0,
-          discount_applied: parseFloat(discountApplied) || 0,
-          net_amount: parseFloat(netAmount) || 0,
+          total_amount: finalTotal,
+          discount_applied: finalDiscount,
+          net_amount: finalNet,
           payment_method: paymentMethod,
         },
       });
     }
 
-    // Update appointment status to 'مكتمل'
-    await prisma.appointment.update({
-      where: { id: appointmentId },
-      data: { status: 'مكتمل' },
-    });
+    const invoiceServiceName = appointment.service?.name || appointment.package?.package_name || appointment.clientPackage?.package_name || 'خدمة غير محددة';
+
+    // Synchronize Revenue record to reflect the final net collected amount
+    if (appointment.revenueId) {
+      await prisma.revenue.update({
+        where: { id: appointment.revenueId },
+        data: { amount: finalNet },
+      });
+    } else if (finalNet > 0) {
+      const rev = await prisma.revenue.create({
+        data: {
+          amount: finalNet,
+          date: new Date(),
+          category: 'حجوزات وباقات',
+          description: `تسوية فاتورة حجز: ${invoiceServiceName} - العميل: ${appointment.client?.name || 'عميل'}`,
+          source: 'APPOINTMENT',
+          referenceId: appointment.id,
+        },
+      });
+      await prisma.appointment.update({
+        where: { id: appointment.id },
+        data: { revenueId: rev.id, final_price: finalNet, status: 'مكتمل' },
+      });
+    } else {
+      // Update appointment status to 'مكتمل'
+      await prisma.appointment.update({
+        where: { id: appointmentId },
+        data: { status: 'مكتمل' },
+      });
+    }
 
     // Deduct inventory stock for used items (whether charged to client or internal consumption)
+    let addedConsumablesTotal = 0;
     if (Array.isArray(items) && items.length > 0) {
       for (const it of items) {
         const targetId = it && (it.id || it.itemId);
         const deductQty = parseFloat(it?.quantity) || 0;
+        const itemPrice = parseFloat(it?.price) || 0;
+        const isCharged = it.chargeToClient !== false;
+        if (isCharged) {
+          addedConsumablesTotal += itemPrice * deductQty;
+        }
+
         if (targetId && deductQty > 0) {
           try {
             await prisma.inventoryItem.update({
@@ -905,7 +2062,7 @@ app.post('/api/invoices', async (req, res) => {
                 quantity_in_stock: { decrement: deductQty },
               },
             });
-            console.log(`[Inventory] Deducted ${deductQty} from item ${targetId} (chargeToClient: ${it.chargeToClient !== false})`);
+            console.log(`[Inventory] Deducted ${deductQty} from item ${targetId} (chargeToClient: ${isCharged})`);
           } catch (stockErr) {
             console.warn(`Could not update stock for item ${targetId}:`, stockErr.message);
           }
@@ -913,13 +2070,17 @@ app.post('/api/invoices', async (req, res) => {
       }
     }
 
+    const baseSessionPrice = Math.max(0, finalTotal - addedConsumablesTotal);
+
     res.status(201).json({
       invoiceId: invoice.id,
       invoiceNumber: `INV-${invoice.id.slice(0, 8).toUpperCase()}`,
       appointmentId,
       clientName: appointment.client?.name,
       clientPhone: appointment.client?.phone,
-      serviceName: appointment.service?.name,
+      serviceName: invoiceServiceName,
+      basePrice: baseSessionPrice,
+      consumablesPrice: addedConsumablesTotal,
       totalAmount: invoice.total_amount,
       discountApplied: invoice.discount_applied,
       netAmount: invoice.net_amount,
@@ -933,14 +2094,44 @@ app.post('/api/invoices', async (req, res) => {
   }
 });
 
+// 10.5 GET REAL-TIME DASHBOARD METRICS
+app.get('/api/dashboard', async (req, res) => {
+  try {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    const [totalAppointments, completedCount, pendingCount, confirmedCount, clientsCount, invoices] = await Promise.all([
+      prisma.appointment.count(),
+      prisma.appointment.count({ where: { status: { in: ['Completed', 'مكتمل'] } } }),
+      prisma.appointment.count({ where: { status: { in: ['Pending', 'قيد الانتظار'] } } }),
+      prisma.appointment.count({ where: { status: { in: ['Confirmed', 'مؤكد'] } } }),
+      prisma.client.count(),
+      prisma.invoice.findMany({ select: { net_amount: true } }),
+    ]);
+
+    const totalRevenue = invoices.reduce((sum, inv) => sum + (parseFloat(inv.net_amount) || 0), 0);
+
+    res.json({
+      totalAppointments,
+      completedCount,
+      pendingCount,
+      confirmedCount,
+      clientsCount,
+      totalRevenue,
+    });
+  } catch (err) {
+    console.error('Error fetching dashboard metrics:', err);
+    res.status(500).json({ error: 'Failed to fetch dashboard metrics' });
+  }
+});
+
 // 11. GET ALL INVOICES
 app.get('/api/invoices', async (req, res) => {
   try {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     const invoices = await prisma.invoice.findMany({
       include: {
         client: true,
         appointment: {
-          include: { service: true, staff: true },
+          include: { service: true, package: true, staff: true, clientPackage: true },
         },
       },
       orderBy: { createdAt: 'desc' },
@@ -979,8 +2170,11 @@ app.get('/api/reports/staff', async (req, res) => {
           where: appointmentWhere,
           include: {
             service: true,
+            package: true,
+            clientPackage: true,
             client: true,
             invoice: true,
+            consumables: true,
           },
           orderBy: { appointment_date: 'desc' },
         },
@@ -992,38 +2186,58 @@ app.get('/api/reports/staff', async (req, res) => {
       const appointments = st.appointments || [];
       const sessionsCount = appointments.length;
 
-      // Calculate total generated revenue from paid invoices / appointments
-      const totalRevenue = appointments.reduce((sum, apt) => {
-        const amount = apt.invoice ? apt.invoice.net_amount : apt.final_price;
-        return sum + (parseFloat(amount) || 0);
-      }, 0);
+      let totalRevenue = 0;
+      let totalCommissionableBase = 0;
+      let totalConsumablesRevenue = 0;
 
       const commType = st.commission_type || 'نسبة';
       const commValue = parseFloat(st.commission_value) || 0;
+      const isPercentage = commType === 'نسبة' || commType.includes('%') || commType.toLowerCase() === 'percentage';
+      const isFixedRent = commType === 'ثابت' || commType === 'إيجار' || commType.includes('إيجار') || commType.includes('راتب');
+
+      const appointmentDetails = appointments.map((apt) => {
+        const aptTotal = parseFloat(apt.invoice ? apt.invoice.net_amount : apt.final_price) || 0;
+        const aptConsumables = (apt.consumables || []).reduce((cSum, c) => cSum + (parseFloat(c.priceCharged) || 0), 0);
+        // Base service price strictly excludes consumables
+        const aptBase = Math.max(0, aptTotal - aptConsumables);
+
+        totalRevenue += aptTotal;
+        totalCommissionableBase += aptBase;
+        totalConsumablesRevenue += aptConsumables;
+
+        const aptDoctorComm = isPercentage
+          ? Math.round(((aptBase * commValue) / 100) * 100) / 100
+          : aptBase;
+
+        return {
+          id: apt.id,
+          date: apt.appointment_date.toISOString().split('T')[0],
+          clientName: apt.client?.name || 'عميل',
+          serviceName: apt.package?.package_name || apt.service?.name || apt.clientPackage?.package_name || 'خدمة',
+          basePrice: aptBase,
+          consumablesPrice: aptConsumables,
+          doctorCommission: aptDoctorComm,
+          finalPrice: apt.final_price,
+          invoiceNumber: apt.invoice ? `INV-${apt.invoice.id.slice(0, 8).toUpperCase()}` : 'N/A',
+          invoiceTotal: aptTotal,
+          paymentMethod: apt.invoice?.payment_method || 'كاش',
+        };
+      });
 
       let staffDue = 0;
       let centerProfit = 0;
 
-      const isPercentage = commType === 'نسبة' || commType.includes('%') || commType.toLowerCase() === 'percentage';
-      const isFixedRent = commType === 'ثابت' || commType === 'إيجار' || commType.includes('إيجار') || commType.includes('راتب');
-
       if (isPercentage) {
-        // 1. Percentage Contract (نسبة مئوية):
-        // Staff Due = Total Revenue * (Commission Value / 100)
-        // Center Profit = Total Revenue - Staff Due
-        staffDue = (totalRevenue * commValue) / 100;
-        centerProfit = totalRevenue - staffDue;
+        // Staff Due is calculated strictly on base session price (EXCLUDING consumables)
+        staffDue = Math.round(((totalCommissionableBase * commValue) / 100) * 100) / 100;
+        // Center keeps 100% of consumables revenue + center's share of service price
+        centerProfit = Math.round((totalRevenue - staffDue) * 100) / 100;
       } else if (isFixedRent) {
-        // 2. Fixed Rent Contract (إيجار ثابت):
-        // The clinic/center does NOT take a cut from the sessions. The center ONLY takes the fixed rent amount.
-        // Staff Due = Total Revenue (The doctor keeps 100% of their session revenue).
-        // Center Profit = The Fixed Rent Amount (e.g., 4000 EGP). The center's profit from this doctor is solely the rent they pay.
-        staffDue = totalRevenue;
-        centerProfit = commValue;
+        staffDue = totalCommissionableBase;
+        centerProfit = commValue + totalConsumablesRevenue;
       } else {
-        // Fallback default (30% percentage)
-        staffDue = (totalRevenue * 30) / 100;
-        centerProfit = totalRevenue - staffDue;
+        staffDue = Math.round(((totalCommissionableBase * 30) / 100) * 100) / 100;
+        centerProfit = Math.round((totalRevenue - staffDue) * 100) / 100;
       }
 
       return {
@@ -1034,18 +2248,11 @@ app.get('/api/reports/staff', async (req, res) => {
         commissionValue: commValue,
         sessionsCount,
         totalRevenue: Math.round(totalRevenue * 100) / 100,
+        commissionableBase: Math.round(totalCommissionableBase * 100) / 100,
+        consumablesRevenue: Math.round(totalConsumablesRevenue * 100) / 100,
         staffDue: Math.round(staffDue * 100) / 100,
         centerProfit: Math.round(centerProfit * 100) / 100,
-        appointments: appointments.map((apt) => ({
-          id: apt.id,
-          date: apt.appointment_date.toISOString().split('T')[0],
-          clientName: apt.client?.name || 'عميل',
-          serviceName: apt.service?.name || 'جلسة',
-          finalPrice: apt.final_price,
-          invoiceNumber: apt.invoice ? `INV-${apt.invoice.id.slice(0, 8).toUpperCase()}` : 'N/A',
-          invoiceTotal: apt.invoice ? apt.invoice.net_amount : apt.final_price,
-          paymentMethod: apt.invoice?.payment_method || 'كاش',
-        })),
+        appointments: appointmentDetails,
       };
     });
 
@@ -1216,6 +2423,143 @@ app.delete('/api/expenses/:id', async (req, res) => {
 });
 
 // ==========================================
+// 13.5 REVENUES API (الإيرادات)
+// ==========================================
+
+// GET /api/revenues (fetch all revenues descending)
+app.get('/api/revenues', async (req, res) => {
+  try {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    const { startDate, endDate, category, source } = req.query;
+
+    const where = {};
+    if (category && category !== 'الكل') {
+      where.category = category;
+    }
+    if (source && source !== 'الكل') {
+      where.source = source;
+    }
+    if (startDate || endDate) {
+      where.date = {};
+      if (startDate) {
+        where.date.gte = new Date(`${startDate}T00:00:00.000Z`);
+      }
+      if (endDate) {
+        where.date.lte = new Date(`${endDate}T23:59:59.999Z`);
+      }
+    }
+
+    const revenues = await prisma.revenue.findMany({
+      where,
+      orderBy: { date: 'desc' },
+      include: {
+        appointment: {
+          include: {
+            client: true,
+            service: true,
+            package: true,
+          },
+        },
+      },
+    });
+
+    res.json(
+      revenues.map((r) => ({
+        id: r.id,
+        amount: r.amount,
+        date: r.date ? r.date.toISOString().split('T')[0] : '',
+        category: r.category,
+        description: r.description || '',
+        source: r.source,
+        referenceId: r.referenceId || null,
+        appointment: r.appointment
+          ? {
+              id: r.appointment.id,
+              clientName: r.appointment.client?.name || '',
+              serviceName: r.appointment.package?.package_name || r.appointment.service?.name || '',
+            }
+          : null,
+        createdAt: r.createdAt ? r.createdAt.toISOString() : '',
+      }))
+    );
+  } catch (err) {
+    console.error('Error fetching revenues:', err);
+    res.status(500).json({ error: 'Failed to fetch revenues', details: err.message });
+  }
+});
+
+// POST /api/revenues (manual revenue creation)
+app.post('/api/revenues', async (req, res) => {
+  try {
+    const { amount, date, category, description } = req.body;
+    const numAmount = parseFloat(amount);
+    const resolvedCategory = (category || '').trim();
+
+    if (!resolvedCategory) {
+      return res.status(400).json({ error: 'تصنيف الإيراد مطلوب' });
+    }
+    if (isNaN(numAmount) || numAmount <= 0) {
+      return res.status(400).json({ error: 'المبلغ يجب أن يكون رقماً موجباً أكبر من صفر' });
+    }
+
+    const resolvedDate = date ? new Date(`${date}T12:00:00.000Z`) : new Date();
+
+    const created = await prisma.revenue.create({
+      data: {
+        amount: numAmount,
+        date: resolvedDate,
+        category: resolvedCategory,
+        description: (description || '').trim() || null,
+        source: 'MANUAL',
+      },
+    });
+
+    res.status(201).json({
+      id: created.id,
+      amount: created.amount,
+      date: created.date ? created.date.toISOString().split('T')[0] : '',
+      category: created.category,
+      description: created.description || '',
+      source: created.source,
+      referenceId: created.referenceId,
+      createdAt: created.createdAt ? created.createdAt.toISOString() : '',
+    });
+  } catch (err) {
+    console.error('Error creating revenue:', err);
+    res.status(500).json({ error: 'Failed to create revenue', details: err.message });
+  }
+});
+
+// DELETE /api/revenues/:id (prevent deletion if source is APPOINTMENT)
+app.delete('/api/revenues/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const existing = await prisma.revenue.findUnique({
+      where: { id },
+    });
+
+    if (!existing) {
+      return res.status(404).json({ error: 'سجل الإيراد غير موجود' });
+    }
+
+    if (existing.source === 'APPOINTMENT') {
+      return res.status(400).json({
+        error: 'لا يمكن حذف إيراد تم توليده تلقائياً من حجز موعد. لإلغاء هذا الإيراد، قم بإلغاء الحجز نفسه من جدول الحجوزات.',
+      });
+    }
+
+    await prisma.revenue.delete({
+      where: { id },
+    });
+
+    res.json({ success: true, message: 'تم حذف الإيراد بنجاح' });
+  } catch (err) {
+    console.error('Error deleting revenue:', err);
+    res.status(500).json({ error: 'Failed to delete revenue', details: err.message });
+  }
+});
+
+// ==========================================
 // 14. COMPREHENSIVE FINANCIAL ANALYTICS & P&L REPORT
 // ==========================================
 app.get('/api/reports/financial', async (req, res) => {
@@ -1261,7 +2605,7 @@ app.get('/api/reports/financial', async (req, res) => {
               },
             } : {}),
           },
-          include: { invoice: true },
+          include: { invoice: true, consumables: true },
         },
       },
     });
@@ -1270,10 +2614,18 @@ app.get('/api/reports/financial', async (req, res) => {
     const staffBreakdown = [];
     staffMembers.forEach((st) => {
       const appointments = st.appointments || [];
-      const staffRev = appointments.reduce((sum, apt) => {
-        const amt = apt.invoice ? apt.invoice.net_amount : apt.final_price;
-        return sum + (parseFloat(amt) || 0);
-      }, 0);
+      let staffRev = 0;
+      let commissionableBase = 0;
+      let consumablesRev = 0;
+
+      appointments.forEach((apt) => {
+        const amt = parseFloat(apt.invoice ? apt.invoice.net_amount : apt.final_price) || 0;
+        const cPrice = (apt.consumables || []).reduce((cSum, c) => cSum + (parseFloat(c.priceCharged) || 0), 0);
+        const base = Math.max(0, amt - cPrice);
+        staffRev += amt;
+        commissionableBase += base;
+        consumablesRev += cPrice;
+      });
 
       const commType = st.commission_type || 'نسبة';
       const commValue = parseFloat(st.commission_value) || 0;
@@ -1285,13 +2637,13 @@ app.get('/api/reports/financial', async (req, res) => {
       let centerProf = 0;
 
       if (isPercentage) {
-        due = (staffRev * commValue) / 100;
+        due = (commissionableBase * commValue) / 100;
         centerProf = staffRev - due;
       } else if (isFixedRent) {
-        due = staffRev;
-        centerProf = commValue;
+        due = commissionableBase;
+        centerProf = commValue + consumablesRev;
       } else {
-        due = (staffRev * 30) / 100;
+        due = (commissionableBase * 30) / 100;
         centerProf = staffRev - due;
       }
 
@@ -1304,6 +2656,8 @@ app.get('/api/reports/financial', async (req, res) => {
         commissionValue: commValue,
         sessionsCount: appointments.length,
         totalRevenue: Math.round(staffRev * 100) / 100,
+        commissionableBase: Math.round(commissionableBase * 100) / 100,
+        consumablesRevenue: Math.round(consumablesRev * 100) / 100,
         staffDue: Math.round(due * 100) / 100,
         centerProfit: Math.round(centerProf * 100) / 100,
       });
@@ -1411,6 +2765,8 @@ app.get('/api/reports/financial', async (req, res) => {
       },
       include: {
         service: { include: { category: true } },
+        package: true,
+        clientPackage: true,
         invoice: true,
       },
     });
@@ -1420,10 +2776,10 @@ app.get('/api/reports/financial', async (req, res) => {
     let totalServicesRevenue = 0;
 
     completedAppointments.forEach((apt) => {
-      const sId = apt.service_id || 'unknown';
-      const sName = apt.service?.name || 'جلسة طبية';
-      const catName = apt.service?.category?.name || 'عام';
-      const basePrice = apt.service?.min_price || apt.final_price || 0;
+      const sId = apt.service_id || (apt.package_id ? `package_${apt.package_id}` : 'unknown');
+      const sName = apt.package?.package_name || apt.service?.name || apt.clientPackage?.package_name || 'خدمة طبية';
+      const catName = apt.service?.category?.name || (apt.package_id ? 'عروض وباقات' : 'عام');
+      const basePrice = apt.package?.fixed_price || apt.service?.min_price || apt.final_price || 0;
       const amount = apt.invoice ? (parseFloat(apt.invoice.net_amount) || 0) : (parseFloat(apt.final_price) || 0);
 
       totalServicesRevenue += amount;
@@ -1792,6 +3148,56 @@ async function ensureSeedExpenses() {
   }
 }
 ensureSeedExpenses();
+
+// Auto-seed initial appointments if fewer than 4 exist
+async function ensureSeedAppointments() {
+  try {
+    const count = await prisma.appointment.count();
+    if (count < 4) {
+      console.log('[Seed] Seeding initial appointments...');
+      const clients = await prisma.client.findMany();
+      const staff = await prisma.staff.findMany();
+      const services = await prisma.service.findMany();
+
+      if (clients.length > 0 && staff.length > 0 && services.length > 0) {
+        const c1 = clients.find(c => c.name.includes('نورا')) || clients[0];
+        const c2 = clients.find(c => c.name.includes('أحمد')) || clients[1] || clients[0];
+        const c3 = clients.find(c => c.name.includes('ليلى')) || clients[2] || clients[0];
+        const c4 = clients.find(c => c.name.includes('طارق')) || clients[3] || clients[0];
+
+        const s1 = staff.find(s => s.name.includes('سارة')) || staff[0];
+        const s2 = staff.find(s => s.name.includes('يوسف')) || staff[1] || staff[0];
+        const s3 = staff.find(s => s.name.includes('مها')) || staff[2] || staff[0];
+
+        const sv1 = services.find(s => s.name.includes('ديرما')) || services[0];
+        const sv2 = services.find(s => s.name.includes('طبيعي')) || services[1] || services[0];
+        const sv3 = services.find(s => s.name.includes('المغربي')) || services[2] || services[0];
+        const sv4 = services.find(s => s.name.includes('كاسات')) || services[3] || services[0];
+
+        const defaultApts = [
+          { client_id: c1.id, staff_id: s1.id, service_id: sv1.id, appointment_date: new Date('2026-10-14T08:00:00.000Z'), status: 'مؤكد', final_price: 500 },
+          { client_id: c2.id, staff_id: s2.id, service_id: sv2.id, appointment_date: new Date('2026-10-14T10:30:00.000Z'), status: 'قيد الانتظار', final_price: 150 },
+          { client_id: c3.id, staff_id: s3.id, service_id: sv3.id, appointment_date: new Date('2026-10-15T12:00:00.000Z'), status: 'مؤكد', final_price: 750 },
+          { client_id: c4.id, staff_id: s1.id, service_id: sv4.id, appointment_date: new Date('2026-10-13T14:00:00.000Z'), status: 'مكتمل', final_price: 500 }
+        ];
+
+        for (const apt of defaultApts) {
+          const exists = await prisma.appointment.findFirst({
+            where: { client_id: apt.client_id, service_id: apt.service_id }
+          });
+          if (!exists) {
+            await prisma.appointment.create({ data: apt });
+          }
+        }
+        console.log('[Seed] Appointments ensured successfully.');
+      }
+    }
+  } catch (seedErr) {
+    console.warn('[Seed] Appointment seeding check skipped:', seedErr.message);
+  }
+}
+// Note: ensureSeedAppointments() disabled on runtime startup to respect empty/cleared database state
+// ensureSeedAppointments();
 
 if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
   app.listen(PORT, () => {

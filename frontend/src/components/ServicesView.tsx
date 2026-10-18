@@ -18,40 +18,51 @@ import {
   TrendingUp,
   Activity
 } from 'lucide-react';
-import { ServiceItem, CategoryItem } from '../types';
+import { ServiceItem, CategoryItem, PackageItem } from '../types';
 
 interface ServicesViewProps {
   services: ServiceItem[];
   categories: CategoryItem[];
+  packages?: PackageItem[];
   onRefreshServices: () => void;
   onRefreshCategories: () => void;
+  onRefreshPackages?: () => void;
   onAddService: (newService: ServiceItem) => void;
   onUpdateService: (updatedService: ServiceItem) => void;
   onDeleteService: (id: string) => void;
   onAddCategory: (newCategory: CategoryItem) => void;
   onUpdateCategory: (updatedCategory: CategoryItem) => void;
   onDeleteCategory: (id: string) => void;
+  onAddPackage?: (newPackage: PackageItem) => void;
+  onUpdatePackage?: (updatedPackage: PackageItem) => void;
+  onDeletePackage?: (id: string) => void;
 }
 
 export const ServicesView: React.FC<ServicesViewProps> = ({
   services,
   categories,
+  packages = [],
   onRefreshServices,
   onRefreshCategories,
+  onRefreshPackages,
   onAddService,
   onUpdateService,
   onDeleteService,
   onAddCategory,
   onUpdateCategory,
   onDeleteCategory,
+  onAddPackage,
+  onUpdatePackage,
+  onDeletePackage,
 }) => {
-  // Navigation tabs: 'services' or 'categories'
-  const [activeTab, setActiveTab] = useState<'services' | 'categories'>('services');
+  // Navigation tabs: 'services' | 'categories' | 'packages'
+  const [activeTab, setActiveTab] = useState<'services' | 'categories' | 'packages'>('services');
 
   // Search & Filter
   const [serviceSearch, setServiceSearch] = useState('');
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('الكل');
   const [categorySearch, setCategorySearch] = useState('');
+  const [packageSearch, setPackageSearch] = useState('');
 
   // Service Modal state (Add / Edit)
   const [isServiceModalOpen, setIsServiceModalOpen] = useState(false);
@@ -61,6 +72,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
   const [serviceBasePrice, setServiceBasePrice] = useState<string>('');
   const [serviceMaxPrice, setServiceMaxPrice] = useState<string>('');
   const [serviceDuration, setServiceDuration] = useState<string>('45');
+  const [serviceSessionsCount, setServiceSessionsCount] = useState<number>(1);
   const [serviceModalError, setServiceModalError] = useState<string | null>(null);
   const [isSubmittingService, setIsSubmittingService] = useState(false);
 
@@ -71,10 +83,21 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
   const [categoryModalError, setCategoryModalError] = useState<string | null>(null);
   const [isSubmittingCategory, setIsSubmittingCategory] = useState(false);
 
+  // Package Modal state (Add / Edit)
+  const [isPackageModalOpen, setIsPackageModalOpen] = useState(false);
+  const [editingPackageId, setEditingPackageId] = useState<string | null>(null);
+  const [packageName, setPackageName] = useState('');
+  const [packageFixedPrice, setPackageFixedPrice] = useState<string>('');
+  const [packageDiscountPercentage, setPackageDiscountPercentage] = useState<string>('');
+  const [packageSessionsCount, setPackageSessionsCount] = useState<number>(6);
+  const [packageModalError, setPackageModalError] = useState<string | null>(null);
+  const [isSubmittingPackage, setIsSubmittingPackage] = useState(false);
+
   // Combined refresh
   const handleRefreshAll = () => {
     onRefreshServices();
     onRefreshCategories();
+    if (onRefreshPackages) onRefreshPackages();
   };
 
   // ==========================================
@@ -87,6 +110,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
     setServiceBasePrice('');
     setServiceMaxPrice('');
     setServiceDuration('45');
+    setServiceSessionsCount(1);
     setServiceModalError(null);
     setIsServiceModalOpen(true);
   };
@@ -103,6 +127,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
     setServiceBasePrice(service.minPrice.toString());
     setServiceMaxPrice(service.maxPrice ? service.maxPrice.toString() : '');
     setServiceDuration(service.durationMinutes ? service.durationMinutes.toString() : '45');
+    setServiceSessionsCount(service.sessionsCount || 1);
     setServiceModalError(null);
     setIsServiceModalOpen(true);
   };
@@ -133,6 +158,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
       maxPrice: serviceMaxPrice ? parseFloat(serviceMaxPrice) : null,
       durationMinutes: parseInt(serviceDuration) || 45,
       type: catName,
+      sessionsCount: Math.max(1, serviceSessionsCount || 1),
     };
 
     try {
@@ -297,6 +323,111 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
     }
   };
 
+  // ==========================================
+  // PACKAGE ACTIONS
+  // ==========================================
+  const handleOpenAddPackageModal = () => {
+    setEditingPackageId(null);
+    setPackageName('');
+    setPackageFixedPrice('');
+    setPackageDiscountPercentage('');
+    setPackageSessionsCount(6);
+    setPackageModalError(null);
+    setIsPackageModalOpen(true);
+  };
+
+  const handleOpenEditPackageModal = (pkg: PackageItem) => {
+    setEditingPackageId(pkg.id);
+    setPackageName(pkg.name);
+    setPackageFixedPrice(pkg.fixedPrice !== null && pkg.fixedPrice !== undefined ? pkg.fixedPrice.toString() : '');
+    setPackageDiscountPercentage(pkg.discountPercentage !== null && pkg.discountPercentage !== undefined ? pkg.discountPercentage.toString() : '');
+    setPackageSessionsCount(pkg.sessionsCount || 1);
+    setPackageModalError(null);
+    setIsPackageModalOpen(true);
+  };
+
+  const handleSavePackage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!packageName.trim()) {
+      setPackageModalError('يرجى إدخال اسم الباقة أو العرض');
+      return;
+    }
+
+    setIsSubmittingPackage(true);
+    setPackageModalError(null);
+
+    const payload = {
+      name: packageName.trim(),
+      fixedPrice: packageFixedPrice ? parseFloat(packageFixedPrice) : null,
+      discountPercentage: packageDiscountPercentage ? parseFloat(packageDiscountPercentage) : null,
+      sessionsCount: Math.max(1, packageSessionsCount || 1),
+    };
+
+    try {
+      if (editingPackageId) {
+        const res = await fetch(`/api/packages/${editingPackageId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || 'فشل تحديث بيانات الباقة');
+        }
+
+        const updated = await res.json();
+        if (onUpdatePackage) onUpdatePackage(updated);
+      } else {
+        const res = await fetch('/api/packages', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || 'فشل إضافة الباقة الجديدة');
+        }
+
+        const created = await res.json();
+        if (onAddPackage) onAddPackage(created);
+      }
+
+      setIsPackageModalOpen(false);
+      if (onRefreshPackages) onRefreshPackages();
+    } catch (err: any) {
+      console.warn('API error during package save:', err);
+      setPackageModalError(err.message || 'حدث خطأ أثناء حفظ الباقة');
+    } finally {
+      setIsSubmittingPackage(false);
+    }
+  };
+
+  const handleDeletePackage = async (pkg: PackageItem) => {
+    if (!confirm(`هل أنت متأكد من حذف أو إلغاء تفعيل الباقة "${pkg.name}"؟`)) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/packages/${pkg.id}`, {
+        method: 'DELETE',
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        alert(errData.error || 'تعذر حذف الباقة.');
+        return;
+      }
+
+      if (onDeletePackage) onDeletePackage(pkg.id);
+      if (onRefreshPackages) onRefreshPackages();
+    } catch (err: any) {
+      console.warn('Error deleting package:', err);
+      alert('تعذر حذف الباقة، يرجى المحاولة لاحقاً');
+    }
+  };
+
   // Filtered Services
   const filteredServices = services.filter((s) => {
     const matchesSearch = s.name.toLowerCase().includes(serviceSearch.toLowerCase());
@@ -308,6 +439,11 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
   // Filtered Categories
   const filteredCategories = categories.filter((c) =>
     c.name.toLowerCase().includes(categorySearch.toLowerCase())
+  );
+
+  // Filtered Packages
+  const filteredPackages = packages.filter((p) =>
+    p.name.toLowerCase().includes(packageSearch.toLowerCase())
   );
 
   // Summary Metrics
@@ -340,7 +476,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
             <RotateCcw className="w-4 h-4" />
           </button>
 
-          {activeTab === 'services' ? (
+          {activeTab === 'services' && (
             <button
               onClick={handleOpenAddServiceModal}
               className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-medium text-sm shadow-xs transition-colors cursor-pointer"
@@ -348,13 +484,25 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
               <Plus className="w-4 h-4" />
               <span>إضافة خدمة جديدة</span>
             </button>
-          ) : (
+          )}
+
+          {activeTab === 'categories' && (
             <button
               onClick={handleOpenAddCategoryModal}
               className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-medium text-sm shadow-xs transition-colors cursor-pointer"
             >
               <Plus className="w-4 h-4" />
               <span>إضافة تصنيف جديد</span>
+            </button>
+          )}
+
+          {activeTab === 'packages' && (
+            <button
+              onClick={handleOpenAddPackageModal}
+              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-medium text-sm shadow-xs transition-colors cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              <span>إضافة باقة جديدة</span>
             </button>
           )}
         </div>
@@ -386,20 +534,18 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
 
         <div className="bg-white p-5 rounded-2xl border border-stone-200/80 shadow-xs flex items-center justify-between">
           <div>
-            <p className="text-xs font-semibold text-stone-400">متوسط سعر الجلسة</p>
-            <h3 className="text-2xl font-bold text-emerald-800 mt-1">
-              {avgPrice.toLocaleString()} <span className="text-xs font-normal text-stone-500">ج.م</span>
-            </h3>
-            <p className="text-xs text-emerald-600 font-medium mt-0.5">المعدل العام للخدمات</p>
+            <p className="text-xs font-semibold text-stone-400">باقات العروض المتعددة</p>
+            <h3 className="text-2xl font-bold text-purple-800 mt-1">{packages.length}</h3>
+            <p className="text-xs text-purple-600 font-medium mt-0.5">باقات جلسات نشطة (POS)</p>
           </div>
-          <div className="w-12 h-12 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600">
-            <DollarSign className="w-6 h-6" />
+          <div className="w-12 h-12 rounded-xl bg-purple-50 border border-purple-100 flex items-center justify-center text-purple-700">
+            <Layers className="w-6 h-6" />
           </div>
         </div>
 
         <div className="bg-white p-5 rounded-2xl border border-stone-200/80 shadow-xs flex items-center justify-between">
           <div>
-            <p className="text-xs font-semibold text-stone-400">أعلى سعر جلسة</p>
+            <p className="text-xs font-semibold text-stone-400">أعلى سعر جلسة / باقة</p>
             <h3 className="text-2xl font-bold text-amber-700 mt-1">
               {highestPrice.toLocaleString()} <span className="text-xs font-normal text-stone-500">ج.م</span>
             </h3>
@@ -452,6 +598,27 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
             }`}
           >
             {totalCategories}
+          </span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('packages')}
+          className={`flex-1 py-3 px-4 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2.5 cursor-pointer ${
+            activeTab === 'packages'
+              ? 'bg-emerald-700 text-white shadow-xs'
+              : 'text-stone-600 hover:text-stone-900 hover:bg-stone-50'
+          }`}
+        >
+          <Layers className="w-4 h-4" />
+          <span>باقات العروض والجلسات (POS)</span>
+          <span
+            className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
+              activeTab === 'packages'
+                ? 'bg-emerald-800 text-white'
+                : 'bg-stone-100 text-stone-600'
+            }`}
+          >
+            {packages.length}
           </span>
         </button>
       </div>
@@ -514,6 +681,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                   <tr className="bg-stone-50/70 border-b border-stone-200/80 text-xs font-semibold text-stone-600">
                     <th className="py-3.5 px-6">اسم الخدمة (Service Name)</th>
                     <th className="py-3.5 px-6">التصنيف (Category)</th>
+                    <th className="py-3.5 px-6">عدد الجلسات (Sessions)</th>
                     <th className="py-3.5 px-6">السعر (Price)</th>
                     <th className="py-3.5 px-6 text-left">الإجراءات</th>
                   </tr>
@@ -521,7 +689,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                 <tbody className="divide-y divide-stone-100 text-sm">
                   {filteredServices.length === 0 ? (
                     <tr>
-                      <td colSpan={4} className="py-12 text-center text-stone-400">
+                      <td colSpan={5} className="py-12 text-center text-stone-400">
                         <Sparkles className="w-10 h-10 mx-auto mb-2 text-stone-300" />
                         <p className="font-medium text-stone-600">لا توجد خدمات مطابقة</p>
                         <p className="text-xs mt-1">اضغط على زر "إضافة خدمة جديدة" لإضافة خدمات في هذا القسم.</p>
@@ -552,6 +720,18 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                             <Tag className="w-3 h-3 text-stone-400" />
                             {service.category}
                           </span>
+                        </td>
+
+                        {/* Sessions Count */}
+                        <td className="py-4 px-6">
+                          {service.sessionsCount && service.sessionsCount > 1 ? (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-purple-50 text-purple-700 text-xs font-bold border border-purple-200/80">
+                              <Layers className="w-3 h-3 text-purple-600" />
+                              <span>{service.sessionsCount} جلسات (باقة POS)</span>
+                            </span>
+                          ) : (
+                            <span className="text-xs text-stone-400 font-medium">جلسة واحدة</span>
+                          )}
                         </td>
 
                         {/* Price */}
@@ -689,6 +869,98 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
       )}
 
       {/* ======================================================== */}
+      {/* SECTION 3: PACKAGES TAB */}
+      {/* ======================================================== */}
+      {activeTab === 'packages' && (
+        <div className="space-y-4">
+          {/* Packages Search & Header Bar */}
+          <div className="bg-white p-4 rounded-2xl border border-stone-200/80 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="relative w-full sm:w-80">
+              <Search className="w-4 h-4 absolute right-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
+              <input
+                type="text"
+                placeholder="بحث باسم الباقة أو العرض..."
+                value={packageSearch}
+                onChange={(e) => setPackageSearch(e.target.value)}
+                className="w-full pr-10 pl-4 py-2 text-xs rounded-xl bg-stone-50/70 border border-stone-200 focus:bg-white focus:outline-hidden focus:border-emerald-600 text-stone-800 placeholder-stone-400 transition-colors"
+              />
+            </div>
+
+            <div className="text-xs text-stone-500 font-medium">
+              إجمالي الباقات: <strong className="text-stone-800">{filteredPackages.length}</strong> باقة مسجلة
+            </div>
+          </div>
+
+          {/* Packages Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredPackages.length === 0 ? (
+              <div className="col-span-full bg-white p-12 rounded-2xl border border-stone-200/80 text-center text-stone-400">
+                <Layers className="w-10 h-10 mx-auto mb-2 text-stone-300" />
+                <p className="font-medium text-stone-600">لا توجد باقات أو عروض مطابقة</p>
+                <p className="text-xs mt-1">اضغط على زر "إضافة باقة جديدة" لإنشاء باقة علاجية أو عرض متعدد الجلسات.</p>
+              </div>
+            ) : (
+              filteredPackages.map((pkg) => (
+                <div
+                  key={pkg.id}
+                  className="bg-white p-5 rounded-2xl border border-stone-200/80 shadow-xs hover:border-purple-200 transition-all flex flex-col justify-between gap-4"
+                >
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <div className="w-10 h-10 rounded-xl bg-purple-50 border border-purple-100 flex items-center justify-center text-purple-700">
+                        <Layers className="w-5 h-5" />
+                      </div>
+                      <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-purple-100 text-purple-800 border border-purple-200/60">
+                        {pkg.sessionsCount || 1} {pkg.sessionsCount === 1 ? 'جلسة' : 'جلسات'}
+                      </span>
+                    </div>
+
+                    <h3 className="text-lg font-bold text-stone-800 mt-3">{pkg.name}</h3>
+                    <p className="text-xs text-stone-500 mt-1">
+                      {pkg.fixedPrice ? (
+                        <span className="font-bold text-emerald-800">
+                          السعر الثابت: {pkg.fixedPrice.toLocaleString()} ج.م
+                        </span>
+                      ) : pkg.discountPercentage ? (
+                        <span className="font-bold text-purple-700">
+                          نسبة الخصم: {pkg.discountPercentage}%
+                        </span>
+                      ) : (
+                        <span className="text-stone-400">سعر مرن حسب الجلسات</span>
+                      )}
+                    </p>
+                  </div>
+
+                  <div className="pt-3 border-t border-stone-100 flex items-center justify-between">
+                    <span className="text-[11px] text-stone-400 font-medium">
+                      متاحة للحجز ونظام POS التلقائي
+                    </span>
+
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => handleOpenEditPackageModal(pkg)}
+                        className="p-1.5 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700 transition-colors cursor-pointer"
+                        title="تعديل الباقة"
+                      >
+                        <Edit3 className="w-4 h-4 text-stone-600" />
+                      </button>
+                      <button
+                        onClick={() => handleDeletePackage(pkg)}
+                        className="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 transition-colors cursor-pointer"
+                        title="حذف الباقة"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
       {/* MODAL 1: ADD / EDIT SERVICE MODAL */}
       {/* ======================================================== */}
       {isServiceModalOpen && (
@@ -802,6 +1074,31 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                     className="w-full px-3.5 py-2 text-sm rounded-xl border border-stone-200 bg-white focus:outline-hidden focus:border-emerald-600 transition-colors text-stone-800"
                   />
                 </div>
+              </div>
+
+              {/* Sessions Count for POS Multi-session automation */}
+              <div className="p-3.5 rounded-2xl bg-stone-50 border border-stone-200/80 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-bold text-stone-700">
+                    عدد الجلسات (Sessions Count) <span className="text-rose-500">*</span>
+                  </label>
+                  <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100/70 px-2 py-0.5 rounded-md border border-emerald-200">
+                    نظام باقات POS التلقائي
+                  </span>
+                </div>
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  required
+                  placeholder="1"
+                  value={serviceSessionsCount}
+                  onChange={(e) => setServiceSessionsCount(Math.max(1, parseInt(e.target.value) || 1))}
+                  className="w-full px-3.5 py-2 text-sm rounded-xl border border-stone-200 bg-white focus:outline-hidden focus:border-emerald-600 transition-colors text-stone-800 font-bold"
+                />
+                <p className="text-[11px] text-stone-500 leading-relaxed">
+                  إذا كان عدد الجلسات أكثر من 1 (مثلاً 6 أو 8 جلسات)، سينشئ النظام تلقائياً باقة جلسات للعميل عند أول حجز/دفع ليتم خصم الجلسات القادمة منها مجاناً.
+                </p>
               </div>
 
               {/* Optional: Max Price */}
@@ -919,6 +1216,146 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                     : editingCategoryId
                     ? 'حفظ التعديلات'
                     : 'إضافة التصنيف'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* MODAL 3: ADD / EDIT PACKAGE MODAL */}
+      {/* ======================================================== */}
+      {isPackageModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/40 backdrop-blur-xs">
+          <div
+            className="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-stone-200 overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+            dir="rtl"
+          >
+            {/* Modal Header */}
+            <div className="px-6 py-4.5 border-b border-stone-100 flex items-center justify-between bg-stone-50/70">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center border border-purple-100">
+                  <Layers className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-stone-800 text-base">
+                    {editingPackageId ? 'تعديل بيانات الباقة' : 'إضافة باقة / عرض جديد'}
+                  </h3>
+                  <p className="text-xs text-stone-400">تحديد عدد الجلسات، السعر، ونظام الحسم للعملاء</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsPackageModalOpen(false)}
+                className="p-1.5 rounded-xl text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleSavePackage} className="p-6 space-y-4 text-right">
+              {packageModalError && (
+                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{packageModalError}</span>
+                </div>
+              )}
+
+              {/* 1. Package Name */}
+              <div>
+                <label className="block text-xs font-bold text-stone-700 mb-1">
+                  اسم الباقة / العرض <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="مثال: باقة الليزر الذهبية (6 جلسات) أو عرض العلاج الطبيعي"
+                  value={packageName}
+                  onChange={(e) => setPackageName(e.target.value)}
+                  className="w-full px-3.5 py-2 text-sm rounded-xl border border-stone-200 bg-white focus:outline-hidden focus:border-emerald-600 transition-colors text-stone-800 font-medium"
+                />
+              </div>
+
+              {/* 2. Sessions Count Input */}
+              <div className="p-3.5 rounded-2xl bg-purple-50/60 border border-purple-200/80 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-bold text-purple-900">
+                    عدد الجلسات الإجمالي (Sessions Count) <span className="text-rose-500">*</span>
+                  </label>
+                  <span className="text-[10px] font-bold text-purple-800 bg-purple-100 px-2 py-0.5 rounded-md">
+                    نظام POS التلقائي
+                  </span>
+                </div>
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  required
+                  placeholder="6"
+                  value={packageSessionsCount}
+                  onChange={(e) => setPackageSessionsCount(Math.max(1, parseInt(e.target.value) || 1))}
+                  className="w-full px-3.5 py-2 text-sm rounded-xl border border-purple-200 bg-white focus:outline-hidden focus:border-purple-600 transition-colors text-stone-800 font-bold"
+                />
+                <p className="text-[11px] text-purple-700 leading-relaxed">
+                  عند حجز هذه الباقة للعميل، يقوم النظام بإنشاء رصيد باقة تلقائياً بعدد هذه الجلسات، واحتساب الجلسة الأولى، مع خصم الجلسات القادمة تلقائياً.
+                </p>
+              </div>
+
+              {/* 3. Pricing: Fixed Price OR Discount % */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-stone-700 mb-1">
+                    السعر الثابت للباقة (ج.م)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    placeholder="مثال: 1800"
+                    value={packageFixedPrice}
+                    onChange={(e) => setPackageFixedPrice(e.target.value)}
+                    className="w-full px-3.5 py-2 text-sm rounded-xl border border-stone-200 bg-white focus:outline-hidden focus:border-emerald-600 transition-colors text-stone-800 font-bold"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-stone-700 mb-1">
+                    أو نسبة الخصم (%)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="1"
+                    placeholder="مثال: 20"
+                    value={packageDiscountPercentage}
+                    onChange={(e) => setPackageDiscountPercentage(e.target.value)}
+                    className="w-full px-3.5 py-2 text-sm rounded-xl border border-stone-200 bg-white focus:outline-hidden focus:border-emerald-600 transition-colors text-stone-800 font-bold"
+                  />
+                </div>
+              </div>
+
+              {/* Modal Actions */}
+              <div className="pt-4 flex items-center justify-end gap-2 border-t border-stone-100">
+                <button
+                  type="button"
+                  onClick={() => setIsPackageModalOpen(false)}
+                  className="px-4 py-2 text-xs font-semibold rounded-xl border border-stone-200 text-stone-600 hover:bg-stone-50 transition-colors cursor-pointer"
+                >
+                  إلغاء
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingPackage}
+                  className="px-5 py-2 text-xs font-bold rounded-xl bg-purple-700 hover:bg-purple-800 text-white transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  {isSubmittingPackage
+                    ? 'جاري الحفظ...'
+                    : editingPackageId
+                    ? 'حفظ التعديلات'
+                    : 'إضافة الباقة'}
                 </button>
               </div>
             </form>

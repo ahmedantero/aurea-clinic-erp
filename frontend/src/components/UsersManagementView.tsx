@@ -49,7 +49,7 @@ export const UsersManagementView: React.FC = () => {
   // Fetch users from API
   const fetchUsers = async () => {
     try {
-      const res = await fetch('/api/users');
+      const res = await fetch('/api/users', { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data)) {

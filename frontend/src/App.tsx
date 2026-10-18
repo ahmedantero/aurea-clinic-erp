@@ -7,10 +7,13 @@ import { ServicesView } from './components/ServicesView';
 import { ClientsView } from './components/ClientsView';
 import { NewAppointmentModal } from './components/NewAppointmentModal';
 import { CheckoutModal } from './components/CheckoutModal';
+import { ReceiptModal } from './components/ReceiptModal';
 import { InventoryView } from './components/InventoryView';
+import { InternalDispatchView } from './components/InternalDispatchView';
 import { StaffManagementView } from './components/StaffManagementView';
 import { StaffReportsView } from './components/StaffReportsView';
 import { ExpensesView } from './components/ExpensesView';
+import { RevenuesView } from './components/RevenuesView';
 import { FinancialAnalyticsView } from './components/FinancialAnalyticsView';
 import { UsersManagementView } from './components/UsersManagementView';
 import { LoginView } from './components/LoginView';
@@ -31,6 +34,7 @@ import {
   CategoryItem,
   ClientItem, 
   ExpenseItem,
+  RevenueItem,
   GeneratedInvoice, 
   InventoryItemType, 
   PackageItem, 
@@ -51,73 +55,88 @@ function App() {
     }
   }, [user, currentTab, hasAccessToTab]);
 
-  // Checkout modal states
+  // Checkout modal states (For pending/confirmed appointments payment)
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [selectedAppointmentForCheckout, setSelectedAppointmentForCheckout] = useState<Appointment | null>(null);
 
-  // Database-backed states
-  const [appointments, setAppointments] = useState<Appointment[]>(INITIAL_APPOINTMENTS);
-  const [services, setServices] = useState<ServiceItem[]>(INITIAL_SERVICES);
-  const [categories, setCategories] = useState<CategoryItem[]>(INITIAL_CATEGORIES);
-  const [packages, setPackages] = useState<PackageItem[]>(INITIAL_PACKAGES);
-  const [staffList, setStaffList] = useState<StaffItem[]>(INITIAL_STAFF);
-  const [clientsList, setClientsList] = useState<ClientItem[]>(INITIAL_CLIENTS);
-  const [inventoryItems, setInventoryItems] = useState<InventoryItemType[]>(INITIAL_INVENTORY);
-  const [expensesList, setExpensesList] = useState<ExpenseItem[]>(INITIAL_EXPENSES);
+  // Read-only Receipt modal states (For completed appointments invoice viewing/printing only)
+  const [isReceiptOpen, setIsReceiptOpen] = useState(false);
+  const [selectedAppointmentForReceipt, setSelectedAppointmentForReceipt] = useState<Appointment | null>(null);
 
-  // Fetch initial data from PostgreSQL Backend API
+  // Database-backed states (Initialized to empty arrays to reflect live database state accurately)
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [filteredAppointmentsCount, setFilteredAppointmentsCount] = useState<number>(0);
+  const [services, setServices] = useState<ServiceItem[]>([]);
+  const [categories, setCategories] = useState<CategoryItem[]>([]);
+  const [packages, setPackages] = useState<PackageItem[]>([]);
+  const [staffList, setStaffList] = useState<StaffItem[]>([]);
+  const [clientsList, setClientsList] = useState<ClientItem[]>([]);
+  const [inventoryItems, setInventoryItems] = useState<InventoryItemType[]>([]);
+  const [expensesList, setExpensesList] = useState<ExpenseItem[]>([]);
+  const [revenuesList, setRevenuesList] = useState<RevenueItem[]>([]);
+
+  // Fetch initial data from PostgreSQL Backend API with strict cache busting
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [servicesRes, categoriesRes, packagesRes, staffRes, clientsRes, aptsRes, invRes, expensesRes] = await Promise.all([
-          fetch('/api/services').catch(() => null),
-          fetch('/api/categories').catch(() => null),
-          fetch('/api/packages').catch(() => null),
-          fetch('/api/staff').catch(() => null),
-          fetch('/api/clients').catch(() => null),
-          fetch('/api/appointments').catch(() => null),
-          fetch('/api/inventory').catch(() => null),
-          fetch('/api/expenses').catch(() => null),
+        const [servicesRes, categoriesRes, packagesRes, staffRes, clientsRes, aptsRes, invRes, expensesRes, revenuesRes] = await Promise.all([
+          fetch('/api/services', { cache: 'no-store' }).catch(() => null),
+          fetch('/api/categories', { cache: 'no-store' }).catch(() => null),
+          fetch('/api/packages', { cache: 'no-store' }).catch(() => null),
+          fetch('/api/staff', { cache: 'no-store' }).catch(() => null),
+          fetch('/api/clients', { cache: 'no-store' }).catch(() => null),
+          fetch('/api/appointments', { cache: 'no-store' }).catch(() => null),
+          fetch('/api/inventory', { cache: 'no-store' }).catch(() => null),
+          fetch('/api/expenses', { cache: 'no-store' }).catch(() => null),
+          fetch('/api/revenues', { cache: 'no-store' }).catch(() => null),
         ]);
 
         if (servicesRes && servicesRes.ok) {
           const sData = await servicesRes.json();
-          if (Array.isArray(sData) && sData.length > 0) setServices(sData);
+          if (Array.isArray(sData)) setServices(sData);
         }
 
         if (categoriesRes && categoriesRes.ok) {
           const catData = await categoriesRes.json();
-          if (Array.isArray(catData) && catData.length > 0) setCategories(catData);
+          if (Array.isArray(catData)) setCategories(catData);
         }
 
         if (packagesRes && packagesRes.ok) {
           const pData = await packagesRes.json();
-          if (Array.isArray(pData) && pData.length > 0) setPackages(pData);
+          if (Array.isArray(pData)) setPackages(pData);
         }
 
         if (staffRes && staffRes.ok) {
           const stData = await staffRes.json();
-          if (Array.isArray(stData) && stData.length > 0) setStaffList(stData);
+          if (Array.isArray(stData)) setStaffList(stData);
         }
 
         if (clientsRes && clientsRes.ok) {
           const cData = await clientsRes.json();
-          if (Array.isArray(cData) && cData.length > 0) setClientsList(cData);
+          if (Array.isArray(cData)) setClientsList(cData);
         }
 
         if (aptsRes && aptsRes.ok) {
           const aData = await aptsRes.json();
-          if (Array.isArray(aData) && aData.length > 0) setAppointments(aData);
+          if (Array.isArray(aData)) {
+            setAppointments(aData);
+            setFilteredAppointmentsCount(aData.length);
+          }
         }
 
         if (invRes && invRes.ok) {
           const iData = await invRes.json();
-          if (Array.isArray(iData) && iData.length > 0) setInventoryItems(iData);
+          if (Array.isArray(iData)) setInventoryItems(iData);
         }
 
         if (expensesRes && expensesRes.ok) {
           const expData = await expensesRes.json();
-          if (Array.isArray(expData) && expData.length > 0) setExpensesList(expData);
+          if (Array.isArray(expData)) setExpensesList(expData);
+        }
+
+        if (revenuesRes && revenuesRes.ok) {
+          const revData = await revenuesRes.json();
+          if (Array.isArray(revData)) setRevenuesList(revData);
         }
       } catch (err) {
         console.warn('API is unreachable, using local fallback state:', err);
@@ -127,23 +146,74 @@ function App() {
     fetchData();
   }, []);
 
-  // Add Appointment Callback
-  const handleAddAppointment = (newApt: Appointment) => {
-    setAppointments((prev) => [newApt, ...prev]);
+  // Appointments Refresh Callback (Forced fresh request with no-store)
+  const handleRefreshAppointments = async () => {
+    try {
+      const res = await fetch('/api/appointments', { cache: 'no-store' });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          setAppointments(data);
+          setFilteredAppointmentsCount(data.length);
+        }
+      }
+    } catch (err) {
+      console.warn('Could not refresh appointments:', err);
+    }
   };
 
-  // Open Checkout for Appointment
+  // Add Appointment Callback (With Immediate Dual-Sync for Real-Time Reactivity)
+  const handleAddAppointment = async (newApt: Appointment) => {
+    // 1. Optimistically prepend new appointment so UI updates instantly
+    setAppointments((prev) => {
+      const filtered = prev.filter((a) => a.id !== newApt.id);
+      return [newApt, ...filtered];
+    });
+    setFilteredAppointmentsCount((prev) => prev + 1);
+
+    // 2. Immediately trigger backend re-fetch for appointments, clients & revenues
+    try {
+      await Promise.all([
+        handleRefreshAppointments(),
+        handleRefreshClients(),
+        handleRefreshRevenues(),
+      ]);
+    } catch (e) {
+      console.warn('Sync error after adding appointment:', e);
+    }
+  };
+
+  // Open Checkout for Appointment (Payment & Invoicing for uncompleted appointments)
   const handleOpenCheckout = (apt: Appointment) => {
-    setSelectedAppointmentForCheckout(apt);
+    if (!apt) return;
+    // Strictly override state with the newly clicked appointment data
+    setSelectedAppointmentForCheckout({ ...apt });
     setIsCheckoutOpen(true);
+  };
+
+  const handleCloseCheckout = () => {
+    setIsCheckoutOpen(false);
+    setSelectedAppointmentForCheckout(null);
+  };
+
+  // Open Read-only Receipt Modal (For completed appointments only)
+  const handleOpenReceipt = (apt: Appointment) => {
+    if (!apt) return;
+    setSelectedAppointmentForReceipt({ ...apt });
+    setIsReceiptOpen(true);
+  };
+
+  const handleCloseReceipt = () => {
+    setIsReceiptOpen(false);
+    setSelectedAppointmentForReceipt(null);
   };
 
   // Invoice Created Callback
   const handleInvoiceCreated = (invoice: GeneratedInvoice) => {
-    // Update appointment status to 'مكتمل'
+    // Update appointment status to 'مكتمل' and attach generated invoice
     setAppointments((prev) =>
       prev.map((apt) =>
-        apt.id === invoice.appointmentId ? { ...apt, status: 'مكتمل' } : apt
+        apt.id === invoice.appointmentId ? { ...apt, status: 'مكتمل', invoice } : apt
       )
     );
 
@@ -165,12 +235,17 @@ function App() {
         })
       );
     }
+
+    // Trigger fresh re-fetch in background to keep all tables and analytics perfectly synced
+    handleRefreshAppointments();
+    handleRefreshRevenues();
+    handleRefreshClients();
   };
 
   // Inventory Handlers
   const handleRefreshInventory = async () => {
     try {
-      const res = await fetch('/api/inventory');
+      const res = await fetch('/api/inventory', { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data)) setInventoryItems(data);
@@ -193,7 +268,7 @@ function App() {
   // Staff Management Handlers
   const handleRefreshStaff = async () => {
     try {
-      const res = await fetch('/api/staff');
+      const res = await fetch('/api/staff', { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data)) setStaffList(data);
@@ -220,7 +295,7 @@ function App() {
   // Client Management Handlers
   const handleRefreshClients = async () => {
     try {
-      const res = await fetch('/api/clients');
+      const res = await fetch('/api/clients', { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data)) setClientsList(data);
@@ -247,7 +322,7 @@ function App() {
   // Services & Categories Handlers
   const handleRefreshServices = async () => {
     try {
-      const res = await fetch('/api/services');
+      const res = await fetch('/api/services', { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data)) setServices(data);
@@ -259,7 +334,7 @@ function App() {
 
   const handleRefreshCategories = async () => {
     try {
-      const res = await fetch('/api/categories');
+      const res = await fetch('/api/categories', { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data)) setCategories(data);
@@ -297,10 +372,37 @@ function App() {
     setCategories((prev) => prev.filter((c) => c.id !== id));
   };
 
+  // Packages Handlers
+  const handleRefreshPackages = async () => {
+    try {
+      const res = await fetch('/api/packages', { cache: 'no-store' });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) setPackages(data);
+      }
+    } catch (err) {
+      console.warn('Could not refresh packages:', err);
+    }
+  };
+
+  const handleAddPackage = (newPkg: PackageItem) => {
+    setPackages((prev) => [newPkg, ...prev]);
+  };
+
+  const handleUpdatePackage = (updatedPkg: PackageItem) => {
+    setPackages((prev) =>
+      prev.map((p) => (p.id === updatedPkg.id ? updatedPkg : p))
+    );
+  };
+
+  const handleDeletePackage = (id: string) => {
+    setPackages((prev) => prev.filter((p) => p.id !== id));
+  };
+
   // Expenses Handlers
   const handleRefreshExpenses = async () => {
     try {
-      const res = await fetch('/api/expenses');
+      const res = await fetch('/api/expenses', { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data)) setExpensesList(data);
@@ -324,6 +426,27 @@ function App() {
     setExpensesList((prev) => prev.filter((e) => e.id !== id));
   };
 
+  // Revenues Handlers
+  const handleRefreshRevenues = async () => {
+    try {
+      const res = await fetch('/api/revenues', { cache: 'no-store' });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) setRevenuesList(data);
+      }
+    } catch (err) {
+      console.warn('Could not refresh revenues:', err);
+    }
+  };
+
+  const handleAddRevenue = (newRevenue: RevenueItem) => {
+    setRevenuesList((prev) => [newRevenue, ...prev]);
+  };
+
+  const handleDeleteRevenue = (id: string) => {
+    setRevenuesList((prev) => prev.filter((r) => r.id !== id));
+  };
+
   // Update Status Callback
   const handleUpdateStatus = async (id: string, newStatus: AppointmentStatus) => {
     setAppointments((prev) =>
@@ -341,18 +464,24 @@ function App() {
     }
   };
 
-  // Delete Appointment Callback
+  // Delete Appointment Callback (Immediate local React state update & DB sync)
   const handleDeleteAppointment = async (id: string) => {
-    if (confirm('هل أنت متأكد من حذف هذا الحجز نهائياً؟')) {
-      setAppointments((prev) => prev.filter((apt) => apt.id !== id));
+    // Immediately remove from React state so table updates instantly without page refresh
+    setAppointments((prev) => prev.filter((apt) => apt.id !== id));
+    setFilteredAppointmentsCount((prev) => Math.max(0, prev - 1));
 
-      try {
-        await fetch(`/api/appointments/${id}`, {
-          method: 'DELETE',
-        });
-      } catch (e) {
-        console.warn('Could not delete from DB:', e);
+    try {
+      const res = await fetch(`/api/appointments/${id}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) {
+        console.error('Failed to delete appointment from DB:', await res.text());
+        // Re-sync with backend if server deletion fails
+        handleRefreshAppointments();
       }
+    } catch (e) {
+      console.warn('Network error deleting appointment from DB:', e);
+      handleRefreshAppointments();
     }
   };
 
@@ -383,6 +512,11 @@ function App() {
           title: 'المخزون',
           subtitle: 'متابعة أرصدة المنتجات ومبيعات السبا والمستلزمات',
         };
+      case 'dispatches':
+        return {
+          title: 'أذونات صرف المستهلكات',
+          subtitle: 'أذونات الاستهلاك الداخلي للمواد والمستلزمات الطبية والتشغيلية',
+        };
       case 'staff-management':
         return {
           title: 'إدارة المتخصصين والأطباء',
@@ -392,6 +526,11 @@ function App() {
         return {
           title: 'حسابات وعمولات المتخصصين',
           subtitle: 'تقارير أرباح المركز وحصص وعمولات وإيجارات الأطباء والأخصائيين',
+        };
+      case 'revenues':
+        return {
+          title: 'سجل الإيرادات والمداخيل المالية',
+          subtitle: 'متابعة شاملة لجميع المداخيل المالية الناتجة تلقائياً عن الحجوزات والقيود اليدوية',
         };
       case 'expenses':
         return {
@@ -407,6 +546,11 @@ function App() {
         return {
           title: 'إدارة المستخدمين والصلاحيات',
           subtitle: 'إنشاء وتعديل حسابات النظام وتعيين أدوار المدراء وموظفي الاستقبال',
+        };
+      default:
+        return {
+          title: 'لوحة التحكم',
+          subtitle: 'نظام إدارة العيادة والسبا',
         };
     }
   };
@@ -427,6 +571,7 @@ function App() {
           setCurrentTab={setCurrentTab}
           isOpen={isMobileMenuOpen}
           setIsOpen={setIsMobileMenuOpen}
+          appointmentsCount={filteredAppointmentsCount}
         />
       </div>
 
@@ -434,8 +579,8 @@ function App() {
       <div className="flex-1 lg:pr-64 print:pr-0 print:m-0 print:h-auto print:overflow-visible flex flex-col min-w-0">
         <div className="print:hidden">
           <Header
-            title={headerInfo.title}
-            subtitle={headerInfo.subtitle}
+            title={headerInfo?.title || 'لوحة التحكم'}
+            subtitle={headerInfo?.subtitle || ''}
             onOpenMobileMenu={() => setIsMobileMenuOpen(true)}
           />
         </div>
@@ -454,8 +599,11 @@ function App() {
               appointments={appointments}
               onOpenNewModal={() => setIsNewModalOpen(true)}
               onOpenCheckoutModal={handleOpenCheckout}
+              onOpenReceiptModal={handleOpenReceipt}
               onUpdateStatus={handleUpdateStatus}
               onDeleteAppointment={handleDeleteAppointment}
+              onRefresh={handleRefreshAppointments}
+              onFilteredCountChange={setFilteredAppointmentsCount}
             />
           )}
 
@@ -463,14 +611,19 @@ function App() {
             <ServicesView
               services={services}
               categories={categories}
+              packages={packages}
               onRefreshServices={handleRefreshServices}
               onRefreshCategories={handleRefreshCategories}
+              onRefreshPackages={handleRefreshPackages}
               onAddService={handleAddService}
               onUpdateService={handleUpdateService}
               onDeleteService={handleDeleteService}
               onAddCategory={handleAddCategory}
               onUpdateCategory={handleUpdateCategory}
               onDeleteCategory={handleDeleteCategory}
+              onAddPackage={handleAddPackage}
+              onUpdatePackage={handleUpdatePackage}
+              onDeletePackage={handleDeletePackage}
             />
           )}
 
@@ -481,6 +634,8 @@ function App() {
               onAddClient={handleAddClient}
               onUpdateClient={handleUpdateClient}
               onDeleteClient={handleDeleteClient}
+              services={services}
+              packages={packages}
             />
           )}
 
@@ -490,6 +645,13 @@ function App() {
               onRefreshInventory={handleRefreshInventory}
               onAddItem={handleAddItem}
               onUpdateStock={handleUpdateStock}
+            />
+          )}
+
+          {currentTab === 'dispatches' && hasAccessToTab('dispatches') && (
+            <InternalDispatchView
+              inventoryItems={inventoryItems}
+              onRefreshInventory={handleRefreshInventory}
             />
           )}
 
@@ -505,6 +667,15 @@ function App() {
 
           {currentTab === 'staff-reports' && hasAccessToTab('staff-reports') && (
             <StaffReportsView />
+          )}
+
+          {currentTab === 'revenues' && hasAccessToTab('revenues') && (
+            <RevenuesView
+              revenues={revenuesList}
+              onRefreshRevenues={handleRefreshRevenues}
+              onAddRevenue={handleAddRevenue}
+              onDeleteRevenue={handleDeleteRevenue}
+            />
           )}
 
           {currentTab === 'expenses' && hasAccessToTab('expenses') && (
@@ -533,21 +704,30 @@ function App() {
         onClose={() => setIsNewModalOpen(false)}
         onAddAppointment={handleAddAppointment}
         services={services}
+        categories={categories}
         packages={packages}
         staffList={staffList}
         clientsList={clientsList}
+        inventoryItems={inventoryItems}
       />
 
       {/* Checkout / Invoice Modal */}
       <CheckoutModal
+        key={selectedAppointmentForCheckout?.id || 'checkout-closed'}
         isOpen={isCheckoutOpen}
-        onClose={() => {
-          setIsCheckoutOpen(false);
-          setSelectedAppointmentForCheckout(null);
-        }}
+        onClose={handleCloseCheckout}
         appointment={selectedAppointmentForCheckout}
         inventoryItems={inventoryItems}
         onInvoiceCreated={handleInvoiceCreated}
+      />
+
+      {/* Read-Only Receipt / Invoice Modal for Completed Appointments */}
+      <ReceiptModal
+        key={selectedAppointmentForReceipt?.id || 'receipt-closed'}
+        isOpen={isReceiptOpen}
+        onClose={handleCloseReceipt}
+        appointment={selectedAppointmentForReceipt}
+        invoice={selectedAppointmentForReceipt?.invoice}
       />
     </div>
   );
