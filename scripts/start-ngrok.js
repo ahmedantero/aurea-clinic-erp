@@ -1,7 +1,6 @@
 const ngrok = require('@ngrok/ngrok');
 const fs = require('fs');
 const path = require('path');
-require('dotenv').config();
 
 const configPath = path.join(__dirname, '..', 'ngrok_config.json');
 
@@ -50,7 +49,12 @@ async function start() {
     console.log(`🌐 الرابط الثابت الدائم لعيادتك: ${url}`);
     console.log(`👉 ضع هذا الرابط في صفحة الإعدادات في موقعك على Vercel:`);
     console.log(`   ${url}`);
+    console.log('   (اترك هذه النافذة مفتوحة طالما أنك تعمل لإرسال الواتساب)');
     console.log('===============================================================\n');
+
+    // Keep process alive indefinitely
+    process.stdin.resume();
+    setInterval(() => {}, 1000 * 60 * 60);
   } catch (err) {
     console.error('❌ Failed to establish Ngrok tunnel:', err.message);
   }
