@@ -174,7 +174,10 @@ export async function dispatchWhatsAppReminder(params: {
     try {
       const res = await fetch(`${baseUrl}/api/whatsapp/send-reminder`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true',
+        },
         body: JSON.stringify({
           phone: params.phone,
           clientName: params.clientName,
@@ -251,7 +254,10 @@ export async function dispatchWhatsAppInvoice(
     try {
       const res = await fetch(`${baseUrl}/api/whatsapp/send-invoice`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true',
+        },
         body: JSON.stringify({
           phone,
           clientName: receiptData.clientName,

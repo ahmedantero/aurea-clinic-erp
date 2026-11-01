@@ -10,7 +10,7 @@ const SETTINGS_KEY = 'aurea_whatsapp_config_v1';
 
 export const DEFAULT_WHATSAPP_CONFIG: WhatsAppConfig = {
   mode: 'auto',
-  bridgeUrl: '',
+  bridgeUrl: 'https://huntress-pulp-trifle.ngrok-free.dev',
   autoDetect: true,
 };
 
@@ -21,7 +21,11 @@ export function getWhatsAppConfig(): WhatsAppConfig {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
     if (raw) {
-      return { ...DEFAULT_WHATSAPP_CONFIG, ...JSON.parse(raw) };
+      const parsed = JSON.parse(raw);
+      if (!parsed.bridgeUrl || parsed.bridgeUrl.trim() === '') {
+        parsed.bridgeUrl = DEFAULT_WHATSAPP_CONFIG.bridgeUrl;
+      }
+      return { ...DEFAULT_WHATSAPP_CONFIG, ...parsed };
     }
   } catch (e) {
     console.error('Failed to load WhatsApp config from localStorage:', e);

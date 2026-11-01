@@ -77,7 +77,10 @@ export const SettingsView: React.FC = () => {
 
       const res = await fetch(testEndpoint, { 
         signal: controller.signal,
-        cache: 'no-store' 
+        cache: 'no-store',
+        headers: {
+          'ngrok-skip-browser-warning': 'true',
+        },
       });
       clearTimeout(timeoutId);
 
