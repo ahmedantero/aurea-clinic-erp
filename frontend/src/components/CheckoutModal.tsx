@@ -17,6 +17,7 @@ import {
   Info
 } from 'lucide-react';
 import { Appointment, InventoryItemType, GeneratedInvoice, InvoiceItem } from '../types';
+import { useAuth } from '../context/AuthContext';
 
 interface CheckoutModalProps {
   isOpen: boolean;
@@ -33,6 +34,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   inventoryItems,
   onInvoiceCreated,
 }) => {
+  const { getAuthHeaders } = useAuth();
   // 1. Add-ons / Inventory: COMPLETELY OPTIONAL. Default is empty string ""
   const [selectedInventoryId, setSelectedInventoryId] = useState<string>('');
   const [addonQuantity, setAddonQuantity] = useState<number>(1);
@@ -166,12 +168,17 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     try {
       const response = await fetch('/api/invoices', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders(),
+        },
         cache: 'no-store',
         body: JSON.stringify({
           appointmentId: appointment.id,
           totalAmount: grossTotal,
           discountApplied: discountAmount,
+          discountType,
+          discountValue,
           netAmount,
           paymentMethod,
           items: invoiceItems, // Safely empty array [] if no items selected!
@@ -187,6 +194,11 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       const fullInvoice: GeneratedInvoice = {
         ...invoiceData,
         basePrice,
+        discountApplied: discountAmount,
+        discountType,
+        discountValue,
+        totalAmount: grossTotal,
+        netAmount,
         items: invoiceItems,
       };
 
@@ -195,8 +207,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         window.history.replaceState(null, '', window.location.pathname);
       }
 
-      setGeneratedReceipt(fullInvoice);
       onInvoiceCreated(fullInvoice);
+      handleFinishAndClose();
     } catch (err) {
       console.warn('API error, falling back locally:', err);
       // Fallback receipt
@@ -210,13 +222,15 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         basePrice,
         totalAmount: grossTotal,
         discountApplied: discountAmount,
+        discountType,
+        discountValue,
         netAmount,
         paymentMethod,
         createdAt: new Date().toISOString(),
         items: invoiceItems,
       };
-      setGeneratedReceipt(fallback);
       onInvoiceCreated(fallback);
+      handleFinishAndClose();
     } finally {
       setIsSubmitting(false);
     }
@@ -228,17 +242,17 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/40 backdrop-blur-xs"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-stone-950/45 dark:bg-black/60 backdrop-blur-md animate-in fade-in duration-200"
       onClick={handleClose}
     >
       <div 
-        className="w-full max-w-xl bg-white rounded-3xl shadow-2xl border border-stone-200 overflow-hidden animate-in fade-in zoom-in-95 duration-200 max-h-[94vh] flex flex-col"
+        className="w-full max-w-xl bg-gradient-to-b from-white via-[#fcfaf6] to-[#f9f6f0] dark:from-stone-900 dark:via-stone-900 dark:to-stone-950 rounded-3xl shadow-2xl shadow-emerald-950/20 border border-stone-200/90 dark:border-white/10 overflow-hidden flex flex-col max-h-[92vh] animate-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
         dir="rtl"
       >
         {/* Printable Receipt View (When invoice is confirmed) */}
         {generatedReceipt ? (
-          <div className="p-6 md:p-8 flex flex-col items-center text-center space-y-6 overflow-y-auto">
+          <div className="p-6 md:p-8 flex flex-col items-center text-center space-y-6 overflow-y-auto silk-scrollbar flex-1">
             <div className="w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-100">
               <CheckCircle2 className="w-8 h-8" />
             </div>
@@ -322,7 +336,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 </div>
                 {generatedReceipt.discountApplied > 0 && (
                   <div className="flex justify-between text-rose-600 font-medium">
-                    <span>الخصم المطبق:</span>
+                    <span>الخصم المطبق {generatedReceipt.discountType === 'percentage' ? `(${generatedReceipt.discountValue}%)` : '(مبلغ ثابت)'}:</span>
                     <span>- {generatedReceipt.discountApplied} ج.م</span>
                   </div>
                 )}
@@ -368,26 +382,26 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
           /* Checkout Preparation Form */
           <>
             {/* Modal Header */}
-            <div className="px-6 py-4.5 border-b border-stone-100 flex items-center justify-between bg-stone-50/70 shrink-0">
+            <div className="px-6 py-4.5 border-b border-stone-200/70 dark:border-stone-800 flex items-center justify-between bg-white/60 dark:bg-stone-900/60 backdrop-blur-md shrink-0">
               <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-100">
-                  <Receipt className="w-5 h-5" />
+                <div className="w-10 h-10 rounded-2xl bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 flex items-center justify-center border border-emerald-500/25 shadow-2xs">
+                  <Receipt className="w-5 h-5 text-emerald-700 dark:text-emerald-400" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-stone-800">الدفع وإصدار الفاتورة</h3>
-                  <p className="text-xs text-stone-400">إتمام محاسبة الجلسة وإصدار الإيصال الرسمي</p>
+                  <h3 className="text-lg font-bold text-stone-900 dark:text-stone-100">الدفع وإصدار الفاتورة</h3>
+                  <p className="text-xs text-stone-500 dark:text-stone-400">إتمام محاسبة الجلسة وإصدار الإيصال الرسمي</p>
                 </div>
               </div>
               <button
                 onClick={handleClose}
-                className="p-1.5 rounded-xl text-stone-400 hover:text-stone-700 hover:bg-stone-200/50 transition-colors cursor-pointer"
+                className="p-1.5 rounded-xl text-stone-400 hover:text-stone-700 hover:bg-stone-200/50 dark:hover:bg-stone-800 transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Modal Body */}
-            <div className="p-6 space-y-5 overflow-y-auto flex-1">
+            <div className="p-6 space-y-5 overflow-y-auto flex-1 silk-scrollbar bg-transparent">
               
               {/* 1. Appointment Details */}
               <div className="p-4.5 rounded-2xl bg-stone-50/80 border border-stone-200/70 space-y-3">
@@ -581,15 +595,22 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               </div>
 
               {/* 3. Flexible Discount: Toggle between Fixed Amount (ج.م) and Percentage (%) */}
-              <div className="space-y-2">
+              <div className="space-y-2.5 p-3.5 rounded-2xl bg-stone-50/70 border border-stone-200/70">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-stone-700">3. الخصم والتخفيض (اختياري)</label>
-                  <div className="flex items-center bg-stone-100 p-0.5 rounded-lg text-xs">
+                  <label className="text-xs font-bold text-stone-700 flex items-center gap-1.5">
+                    <span>3. الخصم والتخفيض (اختياري)</span>
+                    {discountAmount > 0 && (
+                      <span className="text-[10px] font-bold text-rose-700 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200">
+                        خصم {discountType === 'percentage' ? `${discountValue}%` : `${discountAmount} ج.م`} (-{discountAmount} ج.م)
+                      </span>
+                    )}
+                  </label>
+                  <div className="flex items-center bg-stone-200/60 p-0.5 rounded-xl text-xs">
                     <button
                       type="button"
                       onClick={() => setDiscountType('amount')}
-                      className={`px-3 py-0.5 rounded-md font-medium transition-all cursor-pointer ${
-                        discountType === 'amount' ? 'bg-white text-stone-800 shadow-xs' : 'text-stone-400'
+                      className={`px-3 py-1 rounded-lg font-bold transition-all cursor-pointer text-xs ${
+                        discountType === 'amount' ? 'bg-white text-emerald-900 shadow-xs' : 'text-stone-500 hover:text-stone-800'
                       }`}
                     >
                       مبلغ ثابت (ج.م)
@@ -597,8 +618,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                     <button
                       type="button"
                       onClick={() => setDiscountType('percentage')}
-                      className={`px-3 py-0.5 rounded-md font-medium transition-all cursor-pointer ${
-                        discountType === 'percentage' ? 'bg-white text-stone-800 shadow-xs' : 'text-stone-400'
+                      className={`px-3 py-1 rounded-lg font-bold transition-all cursor-pointer text-xs ${
+                        discountType === 'percentage' ? 'bg-white text-emerald-900 shadow-xs' : 'text-stone-500 hover:text-stone-800'
                       }`}
                     >
                       نسبة مئوية (%)
@@ -610,14 +631,50 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   <input
                     type="number"
                     min="0"
+                    max={discountType === 'percentage' ? '100' : String(grossTotal)}
                     placeholder="0"
                     value={discountValue || ''}
-                    onChange={(e) => setDiscountValue(parseFloat(e.target.value) || 0)}
+                    onChange={(e) => {
+                      const val = parseFloat(e.target.value) || 0;
+                      if (discountType === 'percentage') {
+                        setDiscountValue(Math.min(100, Math.max(0, val)));
+                      } else {
+                        setDiscountValue(Math.max(0, val));
+                      }
+                    }}
                     className="flex-1 px-3.5 py-2 text-xs rounded-xl border border-stone-200 bg-white focus:outline-hidden focus:border-emerald-600 font-bold"
                   />
-                  <span className="text-xs text-stone-400 w-12 font-medium">
+                  <span className="text-xs font-bold text-stone-500 w-12 text-center bg-stone-100 py-2 rounded-xl border border-stone-200">
                     {discountType === 'amount' ? 'ج.م' : '%'}
                   </span>
+                </div>
+
+                {/* Quick Presets for Convenient Click */}
+                <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                  <span className="text-[10px] text-stone-400 font-medium">خيارات سريعة:</span>
+                  {(discountType === 'percentage' ? [5, 10, 15, 20, 25, 50] : [50, 100, 150, 200, 300]).map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => setDiscountValue(preset)}
+                      className={`text-[10px] px-2 py-0.5 rounded-lg border font-semibold transition-all cursor-pointer ${
+                        discountValue === preset
+                          ? 'bg-emerald-700 text-white border-emerald-700'
+                          : 'bg-white text-stone-600 border-stone-200 hover:bg-stone-100'
+                      }`}
+                    >
+                      {preset} {discountType === 'percentage' ? '%' : 'ج.م'}
+                    </button>
+                  ))}
+                  {discountValue > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setDiscountValue(0)}
+                      className="text-[10px] px-2 py-0.5 rounded-lg text-stone-400 hover:text-rose-600 transition-colors cursor-pointer mr-auto"
+                    >
+                      إلغاء الخصم
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -669,10 +726,17 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   </div>
                 )}
 
+                {grossTotal !== basePrice && (
+                  <div className="flex justify-between text-stone-500 text-[11px]">
+                    <span>الإجمالي قبل الخصم:</span>
+                    <span className="font-semibold">{grossTotal} ج.م</span>
+                  </div>
+                )}
+
                 {discountAmount > 0 && (
-                  <div className="flex justify-between text-stone-600">
-                    <span>الخصم المطبق:</span>
-                    <span className="font-bold text-rose-600">-{discountAmount} ج.م</span>
+                  <div className="flex justify-between text-rose-600 font-bold bg-white/70 p-1.5 rounded-lg border border-rose-100">
+                    <span>الخصم المطبق ({discountType === 'percentage' ? `${discountValue}%` : 'مبلغ ثابت'}):</span>
+                    <span>-{discountAmount} ج.م</span>
                   </div>
                 )}
 
@@ -683,24 +747,30 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               </div>
 
               {/* Doctor Commission Notice Card */}
-              <div className="p-3 rounded-2xl bg-amber-50/80 border border-amber-200/70 text-xs text-amber-900 space-y-1">
+              <div className="p-3.5 rounded-2xl bg-amber-50/80 border border-amber-200/70 text-xs text-amber-900 space-y-1.5">
                 <div className="flex items-center gap-1.5 font-bold">
                   <Info className="w-4 h-4 text-amber-700 shrink-0" />
-                  <span>توزيع الحسابات المالية وعمولة الأخصائي:</span>
+                  <span>توزيع الحسابات المالية وعمولة الأخصائي (قاعدة عمل أساسية):</span>
                 </div>
                 <p className="text-[11px] text-amber-800 leading-relaxed">
-                  تُحسب عمولة الطبيب/الأخصائي حصرياً على سعر الجلسة الأساسي (<strong>{basePrice} ج.م</strong>). قيمة المستلزمات والمبيعات الإضافية (<strong>{addonsTotal} ج.م</strong>) لا تدخل إطلاقاً في عمولة الأخصائي وتُدرج بنسبة 100% كإيراد صافٍ لصالح العيادة.
+                  ✓ <strong>مستحقات الأخصائي محفوظة بالكامل:</strong> تُحسب عمولة الأخصائي حصرياً على سعر الجلسة الأساسي الأصلي (<strong>{basePrice} ج.م</strong>) دون أن تتأثر إطلاقاً بالخصم الممنوح للعميل.
+                </p>
+                <p className="text-[11px] text-amber-800 leading-relaxed">
+                  ✓ <strong>تحمل المركز للخصم:</strong> المركز يتحمل 100% من قيمة الخصم الممنوح ({discountAmount} ج.م) ويخصم ذلك من صافي ربح المركز فقط. كما يستحق المركز 100% من عوائد المستلزمات ({addonsTotal} ج.م).
                 </p>
               </div>
             </div>
 
+            {/* Soft Gradient Fade Mask before Footer */}
+            <div className="h-4 -mt-4 bg-gradient-to-t from-white/95 dark:from-stone-900/95 to-transparent pointer-events-none relative z-10" />
+
             {/* Modal Actions */}
-            <div className="p-4 px-6 border-t border-stone-100 flex items-center justify-between gap-3 bg-stone-50/40 shrink-0">
+            <div className="p-4 px-6 border-t border-stone-200/80 dark:border-stone-800 flex items-center justify-between gap-3 bg-white/95 dark:bg-stone-900/95 backdrop-blur-xl shrink-0 z-20">
               <button
                 type="button"
                 onClick={handleClose}
                 disabled={isSubmitting}
-                className="px-4 py-2.5 rounded-xl border border-stone-200 text-xs font-semibold text-stone-600 hover:bg-stone-100 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none"
+                className="px-4 py-2.5 rounded-xl border border-stone-200 text-xs font-semibold text-stone-600 dark:text-stone-300 hover:bg-stone-100 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none"
               >
                 إلغاء
               </button>
@@ -708,7 +778,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 type="button"
                 onClick={handleConfirmInvoice}
                 disabled={isSubmitting}
-                className="px-6 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none"
+                className="px-6 py-2.5 rounded-xl bg-[#0f3b2c] hover:bg-[#164e3b] text-[#fbf8ee] text-xs font-bold transition-all shadow-md shadow-emerald-950/10 flex items-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none"
               >
                 {isSubmitting ? (
                   <>
@@ -717,7 +787,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   </>
                 ) : (
                   <>
-                    <Receipt className="w-4 h-4" />
+                    <Receipt className="w-4 h-4 text-[#d4af37]" />
                     <span>تأكيد وطباعة الفاتورة</span>
                   </>
                 )}

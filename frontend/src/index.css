@@ -1,16 +1,328 @@
 @import "tailwindcss";
 
+@theme {
+  --font-sans: 'Tajawal', 'Cairo', system-ui, -apple-system, sans-serif;
+  --font-luxury: 'Playfair Display', Georgia, serif;
+
+  /* Luxury Spa & Clinic Emerald & Deep Teal Palette */
+  --color-brand-emerald-950: #061a14;
+  --color-brand-emerald-900: #0b2e24;
+  --color-brand-emerald-800: #0f3b2c;
+  --color-brand-emerald-700: #164e3b;
+  --color-brand-emerald-600: #1f6b52;
+  --color-brand-emerald-500: #2d8a6b;
+  --color-brand-emerald-400: #48aa89;
+  --color-brand-emerald-100: #e2f4ed;
+  --color-brand-emerald-50: #f0f9f5;
+
+  /* Champagne & Soft Imperial Gold Accents */
+  --color-brand-gold-600: #b89124;
+  --color-brand-gold-500: #d4af37;
+  --color-brand-gold-400: #dfba53;
+  --color-brand-gold-300: #ebd07a;
+  --color-brand-gold-200: #f5e4ab;
+  --color-brand-gold-100: #faf2d6;
+  --color-brand-gold-50: #fdfaf0;
+
+  /* Luxurious Soft Neutral Foundations */
+  --color-brand-silk: #fbf9f5;
+  --color-brand-pearl: #f6f3ed;
+  --color-brand-stone: #ede8df;
+}
+
 @layer base {
   body {
     font-family: 'Tajawal', 'Cairo', system-ui, -apple-system, sans-serif;
-    background-color: #fbfbf9;
-    color: #292524;
+    background-color: transparent !important;
+    color: #1c1917;
     -webkit-font-smoothing: antialiased;
+    letter-spacing: -0.01em;
+  }
+
+  .dark body {
+    background-color: transparent !important;
+    color: #f5f5f4;
   }
 }
 
+/* ==========================================================================
+   Animated Luxury Mesh Gradient (Warm cream, soft emerald/mint, champagne/peach)
+   ========================================================================== */
+@keyframes luxury-mesh-float-1 {
+  0%, 100% {
+    transform: translate3d(0, 0, 0) scale(1) rotate(0deg);
+  }
+  33% {
+    transform: translate3d(8%, -6%, 0) scale(1.1) rotate(6deg);
+  }
+  66% {
+    transform: translate3d(-6%, 8%, 0) scale(0.94) rotate(-5deg);
+  }
+}
+
+@keyframes luxury-mesh-float-2 {
+  0%, 100% {
+    transform: translate3d(0, 0, 0) scale(1) rotate(0deg);
+  }
+  33% {
+    transform: translate3d(-8%, 7%, 0) scale(1.12) rotate(-8deg);
+  }
+  66% {
+    transform: translate3d(6%, -5%, 0) scale(0.92) rotate(5deg);
+  }
+}
+
+@keyframes luxury-mesh-float-3 {
+  0%, 100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(-6%, -8%, 0) scale(1.15);
+  }
+}
+
+.animated-luxury-mesh {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+  background-color: #fbf9f4;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  contain: strict;
+}
+
+.dark .animated-luxury-mesh {
+  background-color: #09090b;
+}
+
+/* Floating Orb 1: Soft Emerald / Mint */
+.animated-luxury-mesh .orb-emerald {
+  position: absolute;
+  top: -10%;
+  right: -5%;
+  width: 70vw;
+  height: 70vw;
+  max-width: 900px;
+  max-height: 900px;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.28) 0%, rgba(5, 150, 105, 0.16) 45%, transparent 70%);
+  filter: blur(60px);
+  -webkit-filter: blur(60px);
+  animation: luxury-mesh-float-1 20s ease-in-out infinite alternate;
+  will-change: transform;
+  transform: translateZ(0);
+}
+
+.dark .animated-luxury-mesh .orb-emerald {
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.32) 0%, rgba(6, 95, 70, 0.2) 50%, transparent 70%);
+  filter: blur(65px);
+  -webkit-filter: blur(65px);
+}
+
+/* Floating Orb 2: Champagne & Imperial Gold */
+.animated-luxury-mesh .orb-gold {
+  position: absolute;
+  top: 25%;
+  left: -12%;
+  width: 65vw;
+  height: 65vw;
+  max-width: 850px;
+  max-height: 850px;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgba(234, 179, 8, 0.26) 0%, rgba(212, 175, 55, 0.15) 45%, transparent 70%);
+  filter: blur(60px);
+  -webkit-filter: blur(60px);
+  animation: luxury-mesh-float-2 24s ease-in-out infinite alternate;
+  will-change: transform;
+  transform: translateZ(0);
+}
+
+.dark .animated-luxury-mesh .orb-gold {
+  background: radial-gradient(circle, rgba(212, 175, 55, 0.28) 0%, rgba(180, 83, 9, 0.18) 50%, transparent 70%);
+  filter: blur(65px);
+  -webkit-filter: blur(65px);
+}
+
+/* Floating Orb 3: Soft Warm Peach / Rose Blush */
+.animated-luxury-mesh .orb-peach {
+  position: absolute;
+  bottom: -15%;
+  right: 15%;
+  width: 60vw;
+  height: 60vw;
+  max-width: 800px;
+  max-height: 800px;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgba(251, 146, 60, 0.24) 0%, rgba(244, 114, 182, 0.14) 50%, transparent 70%);
+  filter: blur(60px);
+  -webkit-filter: blur(60px);
+  animation: luxury-mesh-float-3 22s ease-in-out infinite alternate;
+  will-change: transform;
+  transform: translateZ(0);
+}
+
+.dark .animated-luxury-mesh .orb-peach {
+  background: radial-gradient(circle, rgba(244, 63, 94, 0.22) 0%, rgba(13, 148, 136, 0.18) 50%, transparent 70%);
+  filter: blur(65px);
+  -webkit-filter: blur(65px);
+}
+
+/* ==========================================================================
+   Extreme Glassmorphism Classes (bg-white/30 backdrop-blur-2xl border-white/40)
+   ========================================================================== */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.3);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
+}
+
+.dark .glass-panel {
+  background: rgba(24, 24, 27, 0.4);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.45);
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.35);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.06);
+}
+
+.dark .glass-card {
+  background: rgba(24, 24, 27, 0.45);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+}
+
+.glass-sidebar {
+  background: rgba(255, 255, 255, 0.3);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-left: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
+}
+
+.dark .glass-sidebar {
+  background: rgba(24, 24, 27, 0.4);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.45);
+}
+
+.glass-header {
+  background: rgba(255, 255, 255, 0.3);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.05);
+}
+
+.dark .glass-header {
+  background: rgba(24, 24, 27, 0.4);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.45);
+}
+
+/* Glassmorphism & Luxury Ambient Classes */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.68);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  box-shadow: 0 10px 30px -10px rgba(15, 59, 44, 0.04), 0 1px 3px 0 rgba(0, 0, 0, 0.02);
+}
+
+.dark .glass-panel {
+  background: rgba(28, 25, 23, 0.7);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.35);
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.03), 0 1px 2px 0 rgba(0, 0, 0, 0.02);
+}
+
+.dark .glass-card {
+  background: rgba(28, 25, 23, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+}
+
+.glass-sidebar {
+  background: rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-left: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow: -10px 0 35px -10px rgba(15, 59, 44, 0.04);
+}
+
+.dark .glass-sidebar {
+  background: rgba(24, 24, 27, 0.7);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: -10px 0 35px -10px rgba(0, 0, 0, 0.4);
+}
+
+.glass-header {
+  background: rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+.dark .glass-header {
+  background: rgba(24, 24, 27, 0.7);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Micro-interaction utility for buttons */
+.btn-micro {
+  transition: transform 0.15s cubic-bezier(0.2, 0, 0.2, 1), box-shadow 0.15s cubic-bezier(0.2, 0, 0.2, 1);
+}
+.btn-micro:hover {
+  transform: scale(1.02);
+}
+.btn-micro:active {
+  transform: scale(0.97);
+}
+
+.gold-gradient {
+  background: linear-gradient(135deg, #d4af37 0%, #f3e5ab 50%, #b89124 100%);
+}
+
+.gold-glow {
+  box-shadow: 0 0 20px -3px rgba(212, 175, 55, 0.35);
+}
+
+.emerald-glow {
+  box-shadow: 0 0 25px -4px rgba(15, 59, 44, 0.25);
+}
+
 @media print {
-  /* Global reset: ensure document height expands naturally and overflow is visible */
   html,
   body,
   #root {
@@ -23,7 +335,6 @@
     padding: 0 !important;
   }
 
-  /* Force exact background colors, graphics, and borders in modern browsers */
   *,
   *::before,
   *::after {
@@ -31,7 +342,6 @@
     print-color-adjust: exact !important;
   }
 
-  /* Explicit print display helpers */
   .print\:hidden {
     display: none !important;
   }
@@ -87,7 +397,6 @@
     page-break-inside: avoid !important;
   }
 
-  /* When printing an invoice receipt modal specifically */
   body:has(#printable-receipt) *:not(#printable-receipt, #printable-receipt *) {
     display: none !important;
   }
@@ -102,4 +411,92 @@
     border: none !important;
     box-shadow: none !important;
   }
+}
+
+/* ==========================================================================
+   Luxury Silk Scroll Engine (Custom Ultra-Thin & Responsive Scrollbars)
+   ========================================================================== */
+html {
+  scrollbar-gutter: stable;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Universal Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(15, 59, 44, 0.16);
+  border-radius: 9999px;
+  transition: background 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(15, 59, 44, 0.35);
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.32);
+}
+
+/* Thin Scrollbar Utility for Modals & Drawers */
+.silk-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(15, 59, 44, 0.2) transparent;
+}
+
+.dark .silk-scrollbar {
+  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+}
+
+.silk-scrollbar::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+/* Gradient Fade Mask Utilities for Modals and Cards */
+.mask-fade-bottom {
+  mask-image: linear-gradient(to bottom, black 86%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, black 86%, transparent 100%);
+}
+
+.mask-fade-top-bottom {
+  mask-image: linear-gradient(to bottom, transparent 0%, black 6%, black 92%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 6%, black 92%, transparent 100%);
+}
+
+/* Subtle Table Row Elevation & Ambient Glow */
+.luxury-row-hover {
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.luxury-row-hover:hover {
+  background-color: rgba(15, 59, 44, 0.025);
+  box-shadow: 0 4px 18px -2px rgba(15, 59, 44, 0.05);
+  transform: translateY(-0.5px);
+}
+
+.dark .luxury-row-hover:hover {
+  background-color: rgba(255, 255, 255, 0.03);
+  box-shadow: 0 4px 18px -2px rgba(0, 0, 0, 0.35);
+}
+
+/* Sticky Action Column Shadows */
+.sticky-action-shadow {
+  box-shadow: -8px 0 16px -4px rgba(15, 59, 44, 0.04);
+}
+
+.dark .sticky-action-shadow {
+  box-shadow: -8px 0 16px -4px rgba(0, 0, 0, 0.45);
 }

@@ -25,3 +25,8 @@ yarn-error.log*
 .idea/
 .DS_Store
 Thumbs.db
+
+# WhatsApp session cache & local backups
+.wwebjs_auth/
+.wwebjs_cache/
+backups/

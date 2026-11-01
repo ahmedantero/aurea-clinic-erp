@@ -9,15 +9,42 @@ export interface AuthUser {
   name: string;
   role: UserRole;
   title: string;
+  token?: string;
 }
+
+export const getAuthHeaders = (): Record<string, string> => {
+  try {
+    const saved = localStorage.getItem('aurea_auth_user');
+    if (saved) {
+      const u = JSON.parse(saved);
+      const headers: Record<string, string> = {};
+      if (u.token) {
+        headers['Authorization'] = `Bearer ${u.token}`;
+      } else if (u.id) {
+        headers['Authorization'] = `Bearer ${u.id}`;
+      }
+      if (u.id) {
+        headers['x-user-id'] = u.id;
+      }
+      if (u.username) {
+        headers['x-auth-user'] = u.username;
+        headers['x-username'] = u.username;
+      }
+      return headers;
+    }
+  } catch {}
+  return {};
+};
 
 interface AuthContextType {
   user: AuthUser | null;
+  token: string | null;
   isAuthenticated: boolean;
   isAdmin: boolean;
   login: (username: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   hasAccessToTab: (tab: TabType) => boolean;
+  getAuthHeaders: () => Record<string, string>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -64,6 +91,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           name: data.name || (role === 'ADMIN' ? 'د. خالد عبد الرحمن' : 'سارة أحمد'),
           role: role,
           title: data.title || (role === 'ADMIN' ? 'المدير العام' : 'موظف الاستقبال'),
+          token: data.token,
         };
         setUser(authUser);
         localStorage.setItem('aurea_auth_user', JSON.stringify(authUser));
@@ -80,11 +108,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Emergency local fallback in case network issues occur
       if (cleanUsername.toLowerCase() === 'admin' && cleanPassword === '123') {
         const adminUser: AuthUser = {
-          id: 'usr-admin-01',
+          id: 'b81008e1-335a-4121-b0f6-59c19bbcb008',
           username: 'admin',
           name: 'د. خالد عبد الرحمن',
           role: 'ADMIN',
           title: 'المدير العام',
+          token: 'b81008e1-335a-4121-b0f6-59c19bbcb008',
         };
         setUser(adminUser);
         localStorage.setItem('aurea_auth_user', JSON.stringify(adminUser));
@@ -92,11 +121,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       if (cleanUsername.toLowerCase() === 'reception' && cleanPassword === '123') {
         const receptionUser: AuthUser = {
-          id: 'usr-reception-01',
-          username: 'reception',
-          name: 'سارة أحمد',
+          id: '8e6823b3-43b0-452e-9ff6-aa87fecc9b71',
+          username: 'nada',
+          name: 'ندى أحمد',
           role: 'RECEPTIONIST',
           title: 'موظف الاستقبال',
+          token: '8e6823b3-43b0-452e-9ff6-aa87fecc9b71',
         };
         setUser(receptionUser);
         localStorage.setItem('aurea_auth_user', JSON.stringify(receptionUser));
@@ -125,11 +155,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     <AuthContext.Provider
       value={{
         user,
+        token: user?.token || null,
         isAuthenticated: !!user,
         isAdmin,
         login,
         logout,
         hasAccessToTab,
+        getAuthHeaders,
       }}
     >
       {children}

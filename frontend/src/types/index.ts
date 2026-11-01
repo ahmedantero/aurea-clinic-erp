@@ -1,4 +1,18 @@
 export type AppointmentStatus = 'مؤكد' | 'قيد الانتظار' | 'مكتمل' | 'ملغي';
+export type PaymentMethodType = 'CASH' | 'WALLET' | 'INSTAPAY';
+
+export interface AppointmentServiceItem {
+  id: string;
+  serviceId?: string | null;
+  packageId?: string | null;
+  name: string;
+  price: number;
+  durationMinutes: number;
+  categoryName?: string;
+  staffId?: string | null;
+  staffName?: string | null;
+  isPackageSession?: boolean;
+}
 
 export interface Appointment {
   id: string;
@@ -6,10 +20,12 @@ export interface Appointment {
   clientPhone: string;
   staffName: string;
   serviceName: string;
+  services?: AppointmentServiceItem[];
   categoryName: string;
   appointmentDate: string;
   time: string;
   status: AppointmentStatus;
+  paymentMethod?: PaymentMethodType;
   basePrice?: number;
   totalConsumablesPrice?: number;
   finalPrice: number;
@@ -20,6 +36,7 @@ export interface Appointment {
   isPackageSession?: boolean;
   consumables?: AppointmentConsumableItem[];
   invoice?: GeneratedInvoice | null;
+  createdBy?: { id?: string; name?: string; username?: string } | null;
 }
 
 export interface CategoryItem {
@@ -46,6 +63,7 @@ export interface PackageItem {
   fixedPrice: number | null;
   discountPercentage: number | null;
   sessionsCount?: number;
+  durationMinutes?: number;
 }
 
 export interface ClientAppointmentItem {
@@ -116,6 +134,7 @@ export interface StaffReportAppointment {
   serviceName: string;
   basePrice?: number;
   consumablesPrice?: number;
+  discountApplied?: number;
   doctorCommission?: number;
   finalPrice: number;
   invoiceNumber: string;
@@ -153,6 +172,7 @@ export interface AppointmentConsumableItem {
   productName?: string;
   quantity: number;
   priceCharged?: number;
+  isBilledToClient?: boolean;
 }
 
 export interface InternalDispatchItem {
@@ -165,6 +185,7 @@ export interface InternalDispatchItem {
   totalCost: number;
   date: string;
   notes?: string;
+  createdBy?: { id?: string; name?: string; username?: string } | null;
 }
 
 export interface InvoiceItem {
@@ -189,10 +210,13 @@ export interface GeneratedInvoice {
   doctorCommissionPercentage?: number;
   totalAmount: number;
   discountApplied: number;
+  discountType?: 'amount' | 'percentage' | string;
+  discountValue?: number;
   netAmount: number;
   paymentMethod: string;
   createdAt: string;
   items: InvoiceItem[];
+  createdBy?: { id?: string; name?: string; username?: string } | null;
 }
 
 export interface ExpenseItem {
@@ -202,6 +226,7 @@ export interface ExpenseItem {
   amount: number;
   notes?: string;
   createdAt?: string;
+  createdBy?: { id?: string; name?: string; username?: string } | null;
 }
 
 export interface RevenueItem {
@@ -212,11 +237,13 @@ export interface RevenueItem {
   description?: string;
   source: 'MANUAL' | 'APPOINTMENT' | string;
   referenceId?: string | null;
+  paymentMethod?: PaymentMethodType;
   appointment?: {
     id: string;
     clientName: string;
     serviceName: string;
   } | null;
+  createdBy?: { id?: string; name?: string; username?: string } | null;
   createdAt?: string;
 }
 
@@ -306,5 +333,51 @@ export interface UserAccount {
   password?: string;
   role: 'ADMIN' | 'RECEPTIONIST';
   name?: string;
+  staffId?: string | null;
+  staffName?: string | null;
+  staffRole?: string | null;
   createdAt?: string;
 }
+
+export interface StaffMemberItem {
+  id: string;
+  name: string;
+  role: string;
+  baseSalary: number;
+  phone?: string;
+  joinDate?: string;
+  status: 'Active' | 'Inactive' | string;
+  transactionsCount?: number;
+  payrollsCount?: number;
+  createdBy?: { id?: string; name?: string; username?: string } | null;
+}
+
+export interface StaffTransactionItem {
+  id: string;
+  staffId: string;
+  staffName?: string;
+  staffRole?: string;
+  type: 'ADVANCE' | 'BONUS' | 'DEDUCTION' | string;
+  amount: number;
+  date: string;
+  notes?: string;
+  createdBy?: { id?: string; name?: string; username?: string } | null;
+  createdAt?: string;
+}
+
+export interface PayrollRecordItem {
+  id: string;
+  staffId: string;
+  staffName?: string;
+  staffRole?: string;
+  monthYear: string;
+  baseSalary: number;
+  totalBonuses: number;
+  totalDeductions: number;
+  totalAdvances: number;
+  netPaid: number;
+  paymentDate: string;
+  notes?: string;
+  createdBy?: { id?: string; name?: string; username?: string } | null;
+}
+

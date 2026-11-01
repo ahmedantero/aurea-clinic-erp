@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Sidebar, TabType } from './components/Sidebar';
 import { Header } from './components/Header';
+import { Layout } from './components/Layout';
 import { AppointmentsView } from './components/AppointmentsView';
 import { DashboardView } from './components/DashboardView';
 import { ServicesView } from './components/ServicesView';
@@ -15,8 +17,11 @@ import { StaffReportsView } from './components/StaffReportsView';
 import { ExpensesView } from './components/ExpensesView';
 import { RevenuesView } from './components/RevenuesView';
 import { FinancialAnalyticsView } from './components/FinancialAnalyticsView';
+import { ReportsDashboard } from './components/ReportsDashboard';
 import { UsersManagementView } from './components/UsersManagementView';
+import { HRView } from './components/HRView';
 import { LoginView } from './components/LoginView';
+import { CommandPalette } from './components/CommandPalette';
 import { useAuth } from './context/AuthContext';
 import { 
   INITIAL_APPOINTMENTS, 
@@ -47,6 +52,7 @@ function App() {
   const [currentTab, setCurrentTab] = useState<TabType>('appointments');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
 
   // RBAC protection: If current user has no access to active tab, redirect to 'appointments'
   useEffect(() => {
@@ -162,6 +168,43 @@ function App() {
     }
   };
 
+  // Comprehensive cross-system synchronization across all operational and financial domains
+  const handleRefreshAllData = async () => {
+    try {
+      await Promise.allSettled([
+        handleRefreshAppointments(),
+        handleRefreshRevenues(),
+        handleRefreshExpenses(),
+        handleRefreshInventory(),
+        handleRefreshClients(),
+        handleRefreshStaff(),
+      ]);
+    } catch (err) {
+      console.warn('Cross-system sync error:', err);
+    }
+  };
+
+  // Tab-switch auto-sync: Automatically re-sync active screen data when switching tabs
+  useEffect(() => {
+    if (currentTab === 'revenues') {
+      handleRefreshRevenues();
+    } else if (currentTab === 'appointments') {
+      handleRefreshAppointments();
+    } else if (currentTab === 'dashboard') {
+      handleRefreshAppointments();
+      handleRefreshRevenues();
+      handleRefreshExpenses();
+    } else if (currentTab === 'inventory' || currentTab === 'dispatches') {
+      handleRefreshInventory();
+    } else if (currentTab === 'expenses') {
+      handleRefreshExpenses();
+    } else if (currentTab === 'clients') {
+      handleRefreshClients();
+    } else if (currentTab === 'staff-management') {
+      handleRefreshStaff();
+    }
+  }, [currentTab]);
+
   // Add Appointment Callback (With Immediate Dual-Sync for Real-Time Reactivity)
   const handleAddAppointment = async (newApt: Appointment) => {
     // 1. Optimistically prepend new appointment so UI updates instantly
@@ -209,15 +252,26 @@ function App() {
   };
 
   // Invoice Created Callback
-  const handleInvoiceCreated = (invoice: GeneratedInvoice) => {
-    // Update appointment status to 'مكتمل' and attach generated invoice
+  const handleInvoiceCreated = async (invoice: GeneratedInvoice) => {
+    // 1. Immediately close the checkout modal
+    setIsCheckoutOpen(false);
+    setSelectedAppointmentForCheckout(null);
+
+    // 2. Optimistically update local appointment status to 'مكتمل' and attach invoice
     setAppointments((prev) =>
       prev.map((apt) =>
-        apt.id === invoice.appointmentId ? { ...apt, status: 'مكتمل', invoice } : apt
+        apt.id === invoice.appointmentId
+          ? {
+              ...apt,
+              status: 'مكتمل',
+              finalPrice: typeof invoice.netAmount === 'number' ? invoice.netAmount : apt.finalPrice,
+              invoice,
+            }
+          : apt
       )
     );
 
-    // Deduct inventory items from local state (whether charged or internal consumption)
+    // 3. Deduct inventory items from local state (whether charged or internal consumption)
     if (invoice.items && invoice.items.length > 0) {
       setInventoryItems((prev) =>
         prev.map((inv) => {
@@ -236,10 +290,16 @@ function App() {
       );
     }
 
-    // Trigger fresh re-fetch in background to keep all tables and analytics perfectly synced
-    handleRefreshAppointments();
-    handleRefreshRevenues();
-    handleRefreshClients();
+    // 4. Trigger fresh re-fetch in background to keep all tables and analytics perfectly synced
+    try {
+      await Promise.all([
+        handleRefreshAppointments(),
+        handleRefreshRevenues(),
+        handleRefreshClients(),
+      ]);
+    } catch (err) {
+      console.warn('Sync error after creating invoice:', err);
+    }
   };
 
   // Inventory Handlers
@@ -459,8 +519,11 @@ function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus }),
       });
+      // Synchronize all operational & financial state after status change
+      await handleRefreshAllData();
     } catch (e) {
       console.warn('Could not persist status to DB:', e);
+      handleRefreshAppointments();
     }
   };
 
@@ -476,9 +539,9 @@ function App() {
       });
       if (!res.ok) {
         console.error('Failed to delete appointment from DB:', await res.text());
-        // Re-sync with backend if server deletion fails
-        handleRefreshAppointments();
       }
+      // Synchronize all operational & financial state after deletion
+      await handleRefreshAllData();
     } catch (e) {
       console.warn('Network error deleting appointment from DB:', e);
       handleRefreshAppointments();
@@ -537,6 +600,11 @@ function App() {
           title: 'إدارة المصروفات والنفقات',
           subtitle: 'تسجيل ومتابعة التكاليف التشغيلية، الإيجار، المرافق، والمستلزمات',
         };
+      case 'hr':
+        return {
+          title: 'إدارة الموظفين والرواتب (HR & Payroll)',
+          subtitle: 'سجلات الموظفين، السلف والمكافآت والخصومات، ومسير الرواتب المعتمد مع ترحيل المصروفات',
+        };
       case 'analytics':
         return {
           title: 'التقارير والتحليلات المالية (P&L)',
@@ -563,140 +631,133 @@ function App() {
   const headerInfo = getHeaderInfo();
 
   return (
-    <div dir="rtl" className="min-h-screen print:min-h-full print:h-auto print:overflow-visible bg-[#fcfbf9] print:bg-white text-stone-800 flex font-sans">
-      {/* Right Sidebar for RTL - Hidden on Print */}
-      <div className="print:hidden">
-        <Sidebar
-          currentTab={currentTab}
-          setCurrentTab={setCurrentTab}
-          isOpen={isMobileMenuOpen}
-          setIsOpen={setIsMobileMenuOpen}
-          appointmentsCount={filteredAppointmentsCount}
-        />
-      </div>
-
-      {/* Main Content Area */}
-      <div className="flex-1 lg:pr-64 print:pr-0 print:m-0 print:h-auto print:overflow-visible flex flex-col min-w-0">
-        <div className="print:hidden">
-          <Header
-            title={headerInfo?.title || 'لوحة التحكم'}
-            subtitle={headerInfo?.subtitle || ''}
-            onOpenMobileMenu={() => setIsMobileMenuOpen(true)}
+    <>
+      <Layout
+        currentTab={currentTab}
+        onTabChange={setCurrentTab}
+        headerTitle={headerInfo?.title || 'لوحة التحكم'}
+        headerSubtitle={headerInfo?.subtitle || ''}
+        appointmentsCount={filteredAppointmentsCount}
+        servicesCount={services.length}
+        appointments={appointments}
+        onOpenNewAppointment={() => setIsNewModalOpen(true)}
+        onOpenCheckout={handleOpenCheckout}
+      >
+        {currentTab === 'dashboard' && hasAccessToTab('dashboard') && (
+          <DashboardView
+            appointments={appointments}
+            onNavigateToAppointments={() => setCurrentTab('appointments')}
+            onOpenNewModal={() => setIsNewModalOpen(true)}
+            onRefresh={handleRefreshAllData}
           />
-        </div>
+        )}
 
-        <main className="flex-1 p-6 lg:p-8 print:p-0 print:m-0 print:h-auto print:overflow-visible max-w-6xl print:max-w-none w-full mx-auto">
-          {currentTab === 'dashboard' && hasAccessToTab('dashboard') && (
-            <DashboardView
-              appointments={appointments}
-              onNavigateToAppointments={() => setCurrentTab('appointments')}
-              onOpenNewModal={() => setIsNewModalOpen(true)}
-            />
-          )}
+        {currentTab === 'appointments' && hasAccessToTab('appointments') && (
+          <AppointmentsView
+            appointments={appointments}
+            onOpenNewModal={() => setIsNewModalOpen(true)}
+            onOpenCheckoutModal={handleOpenCheckout}
+            onOpenReceiptModal={handleOpenReceipt}
+            onUpdateStatus={handleUpdateStatus}
+            onDeleteAppointment={handleDeleteAppointment}
+            onRefresh={handleRefreshAllData}
+            onFilteredCountChange={setFilteredAppointmentsCount}
+          />
+        )}
 
-          {currentTab === 'appointments' && hasAccessToTab('appointments') && (
-            <AppointmentsView
-              appointments={appointments}
-              onOpenNewModal={() => setIsNewModalOpen(true)}
-              onOpenCheckoutModal={handleOpenCheckout}
-              onOpenReceiptModal={handleOpenReceipt}
-              onUpdateStatus={handleUpdateStatus}
-              onDeleteAppointment={handleDeleteAppointment}
-              onRefresh={handleRefreshAppointments}
-              onFilteredCountChange={setFilteredAppointmentsCount}
-            />
-          )}
+        {currentTab === 'services' && hasAccessToTab('services') && (
+          <ServicesView
+            services={services}
+            categories={categories}
+            packages={packages}
+            onRefreshServices={handleRefreshServices}
+            onRefreshCategories={handleRefreshCategories}
+            onRefreshPackages={handleRefreshPackages}
+            onAddService={handleAddService}
+            onUpdateService={handleUpdateService}
+            onDeleteService={handleDeleteService}
+            onAddCategory={handleAddCategory}
+            onUpdateCategory={handleUpdateCategory}
+            onDeleteCategory={handleDeleteCategory}
+            onAddPackage={handleAddPackage}
+            onUpdatePackage={handleUpdatePackage}
+            onDeletePackage={handleDeletePackage}
+          />
+        )}
 
-          {currentTab === 'services' && hasAccessToTab('services') && (
-            <ServicesView
-              services={services}
-              categories={categories}
-              packages={packages}
-              onRefreshServices={handleRefreshServices}
-              onRefreshCategories={handleRefreshCategories}
-              onRefreshPackages={handleRefreshPackages}
-              onAddService={handleAddService}
-              onUpdateService={handleUpdateService}
-              onDeleteService={handleDeleteService}
-              onAddCategory={handleAddCategory}
-              onUpdateCategory={handleUpdateCategory}
-              onDeleteCategory={handleDeleteCategory}
-              onAddPackage={handleAddPackage}
-              onUpdatePackage={handleUpdatePackage}
-              onDeletePackage={handleDeletePackage}
-            />
-          )}
+        {currentTab === 'clients' && hasAccessToTab('clients') && (
+          <ClientsView
+            clients={clientsList}
+            onRefreshClients={handleRefreshClients}
+            onAddClient={handleAddClient}
+            onUpdateClient={handleUpdateClient}
+            onDeleteClient={handleDeleteClient}
+            services={services}
+            packages={packages}
+          />
+        )}
 
-          {currentTab === 'clients' && hasAccessToTab('clients') && (
-            <ClientsView
-              clients={clientsList}
-              onRefreshClients={handleRefreshClients}
-              onAddClient={handleAddClient}
-              onUpdateClient={handleUpdateClient}
-              onDeleteClient={handleDeleteClient}
-              services={services}
-              packages={packages}
-            />
-          )}
+        {currentTab === 'inventory' && hasAccessToTab('inventory') && (
+          <InventoryView
+            inventoryItems={inventoryItems}
+            onRefreshInventory={handleRefreshInventory}
+            onAddItem={handleAddItem}
+            onUpdateStock={handleUpdateStock}
+          />
+        )}
 
-          {currentTab === 'inventory' && hasAccessToTab('inventory') && (
-            <InventoryView
-              inventoryItems={inventoryItems}
-              onRefreshInventory={handleRefreshInventory}
-              onAddItem={handleAddItem}
-              onUpdateStock={handleUpdateStock}
-            />
-          )}
+        {currentTab === 'dispatches' && hasAccessToTab('dispatches') && (
+          <InternalDispatchView
+            inventoryItems={inventoryItems}
+            onRefreshInventory={handleRefreshInventory}
+          />
+        )}
 
-          {currentTab === 'dispatches' && hasAccessToTab('dispatches') && (
-            <InternalDispatchView
-              inventoryItems={inventoryItems}
-              onRefreshInventory={handleRefreshInventory}
-            />
-          )}
+        {currentTab === 'staff-management' && hasAccessToTab('staff-management') && (
+          <StaffManagementView
+            staffList={staffList}
+            onRefreshStaff={handleRefreshStaff}
+            onAddStaff={handleAddStaff}
+            onUpdateStaff={handleUpdateStaff}
+            onDeleteStaff={handleDeleteStaff}
+          />
+        )}
 
-          {currentTab === 'staff-management' && hasAccessToTab('staff-management') && (
-            <StaffManagementView
-              staffList={staffList}
-              onRefreshStaff={handleRefreshStaff}
-              onAddStaff={handleAddStaff}
-              onUpdateStaff={handleUpdateStaff}
-              onDeleteStaff={handleDeleteStaff}
-            />
-          )}
+        {currentTab === 'staff-reports' && hasAccessToTab('staff-reports') && (
+          <StaffReportsView />
+        )}
 
-          {currentTab === 'staff-reports' && hasAccessToTab('staff-reports') && (
-            <StaffReportsView />
-          )}
+        {currentTab === 'revenues' && hasAccessToTab('revenues') && (
+          <RevenuesView
+            revenues={revenuesList}
+            onRefreshRevenues={handleRefreshRevenues}
+            onAddRevenue={handleAddRevenue}
+            onDeleteRevenue={handleDeleteRevenue}
+          />
+        )}
 
-          {currentTab === 'revenues' && hasAccessToTab('revenues') && (
-            <RevenuesView
-              revenues={revenuesList}
-              onRefreshRevenues={handleRefreshRevenues}
-              onAddRevenue={handleAddRevenue}
-              onDeleteRevenue={handleDeleteRevenue}
-            />
-          )}
+        {currentTab === 'expenses' && hasAccessToTab('expenses') && (
+          <ExpensesView
+            expenses={expensesList}
+            onRefreshExpenses={handleRefreshExpenses}
+            onAddExpense={handleAddExpense}
+            onUpdateExpense={handleUpdateExpense}
+            onDeleteExpense={handleDeleteExpense}
+          />
+        )}
 
-          {currentTab === 'expenses' && hasAccessToTab('expenses') && (
-            <ExpensesView
-              expenses={expensesList}
-              onRefreshExpenses={handleRefreshExpenses}
-              onAddExpense={handleAddExpense}
-              onUpdateExpense={handleUpdateExpense}
-              onDeleteExpense={handleDeleteExpense}
-            />
-          )}
+        {currentTab === 'hr' && hasAccessToTab('hr') && (
+          <HRView />
+        )}
 
-          {currentTab === 'analytics' && hasAccessToTab('analytics') && (
-            <FinancialAnalyticsView />
-          )}
+        {currentTab === 'analytics' && hasAccessToTab('analytics') && (
+          <ReportsDashboard />
+        )}
 
-          {currentTab === 'users' && hasAccessToTab('users') && (
-            <UsersManagementView />
-          )}
-        </main>
-      </div>
+        {currentTab === 'users' && hasAccessToTab('users') && (
+          <UsersManagementView />
+        )}
+      </Layout>
 
       {/* Add New Appointment Modal with Database Sync */}
       <NewAppointmentModal
@@ -729,7 +790,7 @@ function App() {
         appointment={selectedAppointmentForReceipt}
         invoice={selectedAppointmentForReceipt?.invoice}
       />
-    </div>
+    </>
   );
 }
 

@@ -1,4 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { Pagination } from './ui/Pagination';
+import { usePagination } from '../hooks/usePagination';
+import { SlideOverDrawer } from './ui/SlideOverDrawer';
 import { 
   Users, 
   Search, 
@@ -52,6 +55,11 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
   services = [],
   packages = [],
 }) => {
+  // Auto-refresh clients on screen mount
+  useEffect(() => {
+    onRefreshClients();
+  }, []);
+
   const [searchTerm, setSearchTerm] = useState('');
 
   // Modals state
@@ -368,6 +376,20 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
     return c.name.toLowerCase().includes(term) || c.phone.includes(term);
   });
 
+  // Luxury Pagination Controller
+  const {
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+    paginatedData: paginatedClients,
+    resetPage,
+  } = usePagination(filteredClients, { initialPageSize: 10 });
+
+  useEffect(() => {
+    resetPage();
+  }, [searchTerm]);
+
   // Overall CRM Metrics
   const totalClientsCount = clients.length;
   const totalLifetimeSpent = clients.reduce((sum, c) => sum + (c.totalSpent || 0), 0);
@@ -388,14 +410,14 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
         <div className="flex items-center gap-2">
           <button
             onClick={onRefreshClients}
-            className="p-2.5 rounded-xl border border-stone-200 bg-white hover:bg-stone-50 text-stone-600 transition-colors cursor-pointer"
+            className="p-2.5 rounded-xl border border-stone-200/90 dark:border-stone-700 bg-white dark:bg-stone-800 hover:bg-stone-50 dark:hover:bg-stone-700 text-stone-600 dark:text-stone-300 transition-colors cursor-pointer shadow-2xs"
             title="تحديث البيانات من قاعدة البيانات"
           >
             <RotateCcw className="w-4 h-4" />
           </button>
           <button
             onClick={handleOpenAddModal}
-            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-medium text-sm shadow-xs transition-colors cursor-pointer"
+            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#0f3b2c] hover:bg-[#164e3b] text-[#fbf8ee] font-bold text-sm shadow-md shadow-emerald-950/15 transition-all cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             <span>إضافة عميل جديد</span>
@@ -405,57 +427,57 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
 
       {/* KPI Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white p-5 rounded-2xl border border-stone-200/80 shadow-xs flex items-center justify-between">
+        <div className="bg-gradient-to-br from-white via-[#fcfaf6] to-[#f8f5ee] dark:from-stone-900 dark:via-stone-900/90 dark:to-stone-950 p-5 rounded-2xl border border-stone-200/90 dark:border-white/10 shadow-xs flex items-center justify-between">
           <div>
-            <p className="text-xs font-semibold text-stone-400">إجمالي العملاء</p>
-            <h3 className="text-2xl font-bold text-stone-800 mt-1">{totalClientsCount}</h3>
+            <p className="text-xs font-semibold text-stone-500 dark:text-stone-400">إجمالي العملاء</p>
+            <h3 className="text-2xl font-black text-stone-900 dark:text-white mt-1">{totalClientsCount}</h3>
             <p className="text-xs text-stone-400 mt-0.5">ملفات مسجلة بالمركز</p>
           </div>
-          <div className="w-12 h-12 rounded-xl bg-stone-50 border border-stone-200 flex items-center justify-center text-stone-600">
+          <div className="w-12 h-12 rounded-2xl bg-[#0f3b2c]/10 text-[#0f3b2c] dark:bg-emerald-500/10 dark:text-emerald-400 border border-[#0f3b2c]/15 flex items-center justify-center">
             <Users className="w-6 h-6" />
           </div>
         </div>
 
-        <div className="bg-white p-5 rounded-2xl border border-stone-200/80 shadow-xs flex items-center justify-between">
+        <div className="bg-gradient-to-br from-white via-[#fcfaf6] to-[#f8f5ee] dark:from-stone-900 dark:via-stone-900/90 dark:to-stone-950 p-5 rounded-2xl border border-stone-200/90 dark:border-white/10 shadow-xs flex items-center justify-between">
           <div>
-            <p className="text-xs font-semibold text-stone-400">إجمالي المدفوعات</p>
-            <h3 className="text-2xl font-bold text-emerald-800 mt-1">
+            <p className="text-xs font-semibold text-stone-500 dark:text-stone-400">إجمالي المدفوعات</p>
+            <h3 className="text-2xl font-black text-[#0f3b2c] dark:text-emerald-400 mt-1">
               {totalLifetimeSpent.toLocaleString()} <span className="text-xs font-normal text-stone-500">ج.م</span>
             </h3>
-            <p className="text-xs text-emerald-600 font-medium mt-0.5">إجمالي مبيعات العملاء</p>
+            <p className="text-xs text-[#0f3b2c]/80 dark:text-emerald-500/80 font-medium mt-0.5">إجمالي مبيعات العملاء</p>
           </div>
-          <div className="w-12 h-12 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600">
+          <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 flex items-center justify-center">
             <DollarSign className="w-6 h-6" />
           </div>
         </div>
 
-        <div className="bg-white p-5 rounded-2xl border border-stone-200/80 shadow-xs flex items-center justify-between">
+        <div className="bg-gradient-to-br from-white via-[#fcfaf6] to-[#f8f5ee] dark:from-stone-900 dark:via-stone-900/90 dark:to-stone-950 p-5 rounded-2xl border border-stone-200/90 dark:border-white/10 shadow-xs flex items-center justify-between">
           <div>
-            <p className="text-xs font-semibold text-stone-400">إجمالي الزيارات والجلسات</p>
-            <h3 className="text-2xl font-bold text-stone-800 mt-1">{totalVisitsCount}</h3>
+            <p className="text-xs font-semibold text-stone-500 dark:text-stone-400">إجمالي الزيارات والجلسات</p>
+            <h3 className="text-2xl font-black text-stone-900 dark:text-white mt-1">{totalVisitsCount}</h3>
             <p className="text-xs text-stone-400 mt-0.5">جلسة علاج طبيعي وسبا</p>
           </div>
-          <div className="w-12 h-12 rounded-xl bg-stone-50 border border-stone-200 flex items-center justify-center text-stone-600">
+          <div className="w-12 h-12 rounded-2xl bg-[#0f3b2c]/10 text-[#0f3b2c] dark:bg-emerald-500/10 dark:text-emerald-400 border border-[#0f3b2c]/15 flex items-center justify-center">
             <Calendar className="w-6 h-6" />
           </div>
         </div>
 
-        <div className="bg-white p-5 rounded-2xl border border-stone-200/80 shadow-xs flex items-center justify-between">
+        <div className="bg-gradient-to-br from-white via-[#fcfaf6] to-[#f8f5ee] dark:from-stone-900 dark:via-stone-900/90 dark:to-stone-950 p-5 rounded-2xl border border-stone-200/90 dark:border-white/10 shadow-xs flex items-center justify-between">
           <div>
-            <p className="text-xs font-semibold text-stone-400">متوسط إنفاق العميل</p>
-            <h3 className="text-2xl font-bold text-amber-700 mt-1">
+            <p className="text-xs font-semibold text-stone-500 dark:text-stone-400">متوسط إنفاق العميل</p>
+            <h3 className="text-2xl font-black text-amber-700 dark:text-amber-400 mt-1">
               {averageSpent.toLocaleString()} <span className="text-xs font-normal text-stone-500">ج.م</span>
             </h3>
             <p className="text-xs text-amber-600 font-medium mt-0.5">متوسط القيمة للعميل الواحد</p>
           </div>
-          <div className="w-12 h-12 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-600">
+          <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 flex items-center justify-center">
             <Sparkles className="w-6 h-6" />
           </div>
         </div>
       </div>
 
       {/* Search and Filters Bar */}
-      <div className="bg-white p-3.5 rounded-2xl border border-stone-200/80 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3">
+      <div className="bg-white/80 dark:bg-stone-900/80 backdrop-blur-xl p-3.5 rounded-2xl border border-stone-200/90 dark:border-white/10 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3">
         <div className="relative w-full sm:w-80">
           <Search className="w-4 h-4 absolute right-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
           <input
@@ -463,26 +485,26 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="بحث باسم العميل أو رقم الهاتف..."
-            className="w-full pr-10 pl-4 py-2 text-sm rounded-xl border border-stone-200/80 bg-stone-50/50 focus:bg-white focus:outline-hidden focus:border-emerald-600 transition-colors text-stone-800 placeholder-stone-400"
+            className="w-full pr-10 pl-4 py-2.5 text-sm rounded-xl border border-stone-200/90 dark:border-stone-700 bg-white/90 dark:bg-stone-800 text-stone-800 dark:text-stone-200 focus:outline-hidden focus:border-[#0f3b2c] shadow-2xs placeholder-stone-400"
           />
         </div>
 
-        <div className="text-xs text-stone-500 font-medium">
-          تم العثور على <strong className="text-stone-800">{filteredClients.length}</strong> عميل
+        <div className="text-xs text-stone-500 dark:text-stone-400 font-medium">
+          تم العثور على <strong className="text-stone-800 dark:text-stone-200">{filteredClients.length}</strong> عميل
         </div>
       </div>
 
       {/* Clients Data Table */}
-      <div className="bg-white rounded-2xl border border-stone-200/80 shadow-xs overflow-hidden">
-        <div className="overflow-x-auto">
+      <div className="bg-white/85 dark:bg-stone-900/85 backdrop-blur-xl rounded-3xl border border-stone-200/90 dark:border-white/10 shadow-[0_15px_40px_-12px_rgba(15,59,44,0.06)] overflow-hidden">
+        <div className="overflow-x-auto silk-scrollbar">
           <table className="w-full text-right border-collapse">
-            <thead>
-              <tr className="bg-stone-50/70 border-b border-stone-200/80 text-xs font-semibold text-stone-600">
+            <thead className="sticky top-0 z-10 bg-white/95 dark:bg-stone-900/95 backdrop-blur-md border-b border-stone-200/90 dark:border-stone-800 shadow-2xs">
+              <tr className="text-xs font-bold text-stone-700 dark:text-stone-300 uppercase tracking-wider">
                 <th className="py-3.5 px-6">اسم العميل (Client Name)</th>
                 <th className="py-3.5 px-6">رقم الهاتف (Phone)</th>
                 <th className="py-3.5 px-6">إجمالي الزيارات (Visits)</th>
                 <th className="py-3.5 px-6">إجمالي المدفوعات (Total Spent)</th>
-                <th className="py-3.5 px-6 text-left">الإجراءات</th>
+                <th className="py-3.5 px-6 text-left sticky left-0 z-20 bg-white/95 dark:bg-stone-900/95 backdrop-blur-md sticky-action-shadow">الإجراءات</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-100 text-sm">
@@ -495,8 +517,8 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                   </td>
                 </tr>
               ) : (
-                filteredClients.map((c) => (
-                  <tr key={c.id} className="hover:bg-stone-50/50 transition-colors">
+                paginatedClients.map((c) => (
+                  <tr key={c.id} className="luxury-row-hover hover:bg-stone-50/60 transition-all duration-150">
                     {/* اسم العميل */}
                     <td className="py-4 px-6">
                       <div className="flex items-center gap-3">
@@ -546,7 +568,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                     </td>
 
                     {/* الإجراءات */}
-                    <td className="py-4 px-6 text-left">
+                    <td className="py-4 px-6 text-left sticky left-0 z-10 bg-white/95 dark:bg-stone-900/95 backdrop-blur-sm sticky-action-shadow">
                       <div className="flex items-center justify-end gap-1.5">
                         <button
                           onClick={() => setSelectedClientForProfile(c)}
@@ -580,69 +602,79 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
             </tbody>
           </table>
         </div>
+
+        {/* Luxury Pagination */}
+        <Pagination
+          currentPage={currentPage}
+          totalItems={filteredClients.length}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+          pageSizeOptions={[10, 20, 50, 100]}
+          itemLabel="عميل"
+        />
       </div>
 
-      {/* MODAL 1: الملف الشخصي للعميل (Client Profile Modal) */}
-      {selectedClientForProfile && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/40 backdrop-blur-xs">
-          <div 
-            className="w-full max-w-3xl bg-white rounded-3xl shadow-2xl border border-stone-200 overflow-hidden animate-in fade-in zoom-in-95 duration-200 max-h-[92vh] flex flex-col"
-            onClick={(e) => e.stopPropagation()}
-            dir="rtl"
-          >
-            {/* Modal Header */}
-            <div className="p-6 border-b border-stone-100 bg-stone-50/70 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div className="flex items-center gap-3.5">
-                <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center font-extrabold text-base border border-emerald-100">
-                  {selectedClientForProfile.name.slice(0, 2)}
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-xl font-bold text-stone-800">{selectedClientForProfile.name}</h3>
-                    <span className="text-[11px] font-semibold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full border border-emerald-200">
-                      عميل نشط
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-3 text-xs text-stone-400 mt-1 flex-wrap">
-                    <span className="flex items-center gap-1 font-mono text-stone-600" dir="ltr">
-                      <Phone className="w-3.5 h-3.5 text-stone-400" />
-                      {selectedClientForProfile.phone}
-                    </span>
-                    <span>•</span>
-                    <span>تاريخ التسجيل: {selectedClientForProfile.joinDate || '2026-10-13'}</span>
-                    <span>•</span>
-                    <span className="text-amber-700 font-medium flex items-center gap-1">
-                      <Award className="w-3.5 h-3.5" />
-                      {selectedClientForProfile.loyaltyPoints} نقطة ولاء
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 self-end sm:self-center">
+      {/* MODAL 1: الملف الشخصي للعميل (Client Profile Drawer) */}
+      <SlideOverDrawer
+        isOpen={Boolean(selectedClientForProfile)}
+        onClose={() => setSelectedClientForProfile(null)}
+        title={selectedClientForProfile?.name || ''}
+        subtitle="الملف الطبي وسجل الزيارات والباقات والفواتير"
+        badge="عميل نشط"
+        maxWidth="max-w-3xl"
+        icon={<Users className="w-5 h-5 text-emerald-700 dark:text-emerald-400" />}
+        footer={
+          <div className="flex items-center justify-between w-full">
+            <div className="flex items-center gap-2">
+              {selectedClientForProfile && (
                 <button
+                  type="button"
                   onClick={() => handleOpenEditModal(selectedClientForProfile)}
-                  className="px-3 py-1.5 rounded-xl border border-stone-200 bg-white hover:bg-stone-50 text-stone-700 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                  className="px-3.5 py-2 rounded-xl border border-stone-200 bg-white hover:bg-stone-50 text-stone-700 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
                 >
                   <Edit3 className="w-3.5 h-3.5 text-stone-500" />
-                  <span>تعديل</span>
+                  <span>تعديل البيانات</span>
                 </button>
-                <button
-                  onClick={() => setSelectedClientForProfile(null)}
-                  className="p-1.5 rounded-xl text-stone-400 hover:text-stone-700 hover:bg-stone-200/60 transition-colors cursor-pointer"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => setSelectedClientForProfile(null)}
+              className="px-5 py-2 text-xs font-bold rounded-xl bg-[#0f3b2c] hover:bg-[#164e3b] text-[#fbf8ee] transition-all cursor-pointer shadow-sm"
+            >
+              إغلاق الملف
+            </button>
+          </div>
+        }
+      >
+        {selectedClientForProfile && (
+          <div className="space-y-5 -mt-1">
+            {/* Quick Contact & Loyalty Bar */}
+            <div className="flex items-center justify-between p-3.5 rounded-2xl bg-white/70 dark:bg-stone-800/70 border border-stone-200/80 dark:border-stone-700/80 text-xs flex-wrap gap-2 shadow-2xs">
+              <span className="flex items-center gap-1.5 font-mono text-stone-700 dark:text-stone-300 font-semibold" dir="ltr">
+                <Phone className="w-3.5 h-3.5 text-stone-400" />
+                {selectedClientForProfile.phone}
+              </span>
+              <span className="text-stone-400">•</span>
+              <span className="text-stone-500 dark:text-stone-400">
+                تاريخ التسجيل: {selectedClientForProfile.joinDate || '2026-10-13'}
+              </span>
+              <span className="text-stone-400">•</span>
+              <span className="text-amber-700 dark:text-amber-400 font-bold flex items-center gap-1">
+                <Award className="w-3.5 h-3.5" />
+                {selectedClientForProfile.loyaltyPoints} نقطة ولاء
+              </span>
             </div>
 
             {/* Medical Notes Banner if exists */}
             {selectedClientForProfile.medicalHistory && (
-              <div className="px-6 py-2.5 bg-amber-50/70 border-b border-amber-100/80 text-xs text-amber-900 flex items-center gap-2">
-                <Activity className="w-4 h-4 text-amber-600 shrink-0" />
-                <span>
-                  <strong>الملاحظات والحالة الصحية:</strong> {selectedClientForProfile.medicalHistory}
-                </span>
+              <div className="p-3.5 rounded-2xl bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-800/40 text-xs text-amber-900 dark:text-amber-200 flex items-start gap-2.5">
+                <Activity className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                <div>
+                  <strong className="block font-bold mb-0.5">الملاحظات والحالة الصحية:</strong>
+                  <p className="leading-relaxed">{selectedClientForProfile.medicalHistory}</p>
+                </div>
               </div>
             )}
 
@@ -657,25 +689,25 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
               );
 
               return (
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 bg-stone-50/50 border-b border-stone-100 text-center">
-                  <div className="bg-white p-3 rounded-xl border border-stone-200/70">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-center">
+                  <div className="bg-white dark:bg-stone-800 p-3 rounded-2xl border border-stone-200/70 dark:border-stone-700/70 shadow-2xs">
                     <span className="text-[11px] text-stone-400 block font-medium">إجمالي الزيارات</span>
-                    <strong className="text-base text-stone-800">{selectedClientForProfile.totalVisits || 0} زيارة</strong>
+                    <strong className="text-sm font-bold text-stone-800 dark:text-stone-200">{selectedClientForProfile.totalVisits || 0} زيارة</strong>
                   </div>
-                  <div className="bg-white p-3 rounded-xl border border-stone-200/70">
-                    <span className="text-[11px] text-emerald-700 block font-medium">إجمالي المدفوعات</span>
-                    <strong className="text-base text-emerald-800">
+                  <div className="bg-white dark:bg-stone-800 p-3 rounded-2xl border border-stone-200/70 dark:border-stone-700/70 shadow-2xs">
+                    <span className="text-[11px] text-emerald-700 dark:text-emerald-400 block font-medium">إجمالي المدفوعات</span>
+                    <strong className="text-sm font-extrabold text-emerald-800 dark:text-emerald-300">
                       {(selectedClientForProfile.totalSpent || 0).toLocaleString()} ج.م
                     </strong>
                   </div>
-                  <div className="bg-white p-3 rounded-xl border border-stone-200/70">
-                    <span className="text-[11px] text-amber-700 block font-medium">نقاط الولاء</span>
-                    <strong className="text-base text-amber-800">{selectedClientForProfile.loyaltyPoints} نقطة</strong>
+                  <div className="bg-white dark:bg-stone-800 p-3 rounded-2xl border border-stone-200/70 dark:border-stone-700/70 shadow-2xs">
+                    <span className="text-[11px] text-amber-700 dark:text-amber-400 block font-medium">نقاط الولاء</span>
+                    <strong className="text-sm font-bold text-amber-800 dark:text-amber-300">{selectedClientForProfile.loyaltyPoints} نقطة</strong>
                   </div>
-                  <div className="bg-white p-3 rounded-xl border border-purple-200/80 bg-purple-50/20">
-                    <span className="text-[11px] text-purple-700 block font-bold">باقات وجلسات نشطة</span>
-                    <strong className="text-base text-purple-900">
-                      {activePkgs.length > 0 ? `${activePkgs.length} باقة (${remainingSessionsTotal} جلسة)` : 'لا توجد'}
+                  <div className="bg-white dark:bg-stone-800 p-3 rounded-2xl border border-purple-200/80 dark:border-purple-800/60 bg-purple-50/20 dark:bg-purple-950/20 shadow-2xs">
+                    <span className="text-[11px] text-purple-700 dark:text-purple-400 block font-bold">باقات نشطة</span>
+                    <strong className="text-sm font-bold text-purple-900 dark:text-purple-200">
+                      {activePkgs.length > 0 ? `${activePkgs.length} (${remainingSessionsTotal} جلسة)` : 'لا توجد'}
                     </strong>
                   </div>
                 </div>
@@ -683,13 +715,14 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
             })()}
 
             {/* Tabs Navigation in Profile */}
-            <div className="px-6 pt-3 flex items-center gap-2 border-b border-stone-100 overflow-x-auto">
+            <div className="flex items-center gap-1.5 p-1 bg-stone-100 dark:bg-stone-800 rounded-2xl overflow-x-auto silk-scrollbar">
               <button
+                type="button"
                 onClick={() => setProfileActiveTab('packages')}
-                className={`pb-2.5 px-3 text-xs font-bold transition-all border-b-2 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+                className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all text-center whitespace-nowrap cursor-pointer flex items-center justify-center gap-1.5 ${
                   profileActiveTab === 'packages'
-                    ? 'border-emerald-700 text-emerald-800'
-                    : 'border-transparent text-stone-400 hover:text-stone-700'
+                    ? 'bg-white dark:bg-stone-900 text-purple-800 dark:text-purple-300 shadow-xs'
+                    : 'text-stone-500 hover:text-stone-800 dark:text-stone-400'
                 }`}
               >
                 <Layers className="w-3.5 h-3.5" />
@@ -697,23 +730,25 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
               </button>
 
               <button
+                type="button"
                 onClick={() => setProfileActiveTab('appointments')}
-                className={`pb-2.5 px-3 text-xs font-bold transition-all border-b-2 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+                className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all text-center whitespace-nowrap cursor-pointer flex items-center justify-center gap-1.5 ${
                   profileActiveTab === 'appointments'
-                    ? 'border-emerald-700 text-emerald-800'
-                    : 'border-transparent text-stone-400 hover:text-stone-700'
+                    ? 'bg-white dark:bg-stone-900 text-emerald-800 dark:text-emerald-300 shadow-xs'
+                    : 'text-stone-500 hover:text-stone-800 dark:text-stone-400'
                 }`}
               >
                 <Calendar className="w-3.5 h-3.5" />
-                <span>تاريخ الزيارات والحجوزات ({selectedClientForProfile.appointments?.length || 0})</span>
+                <span>تاريخ الزيارات ({selectedClientForProfile.appointments?.length || 0})</span>
               </button>
 
               <button
+                type="button"
                 onClick={() => setProfileActiveTab('invoices')}
-                className={`pb-2.5 px-3 text-xs font-bold transition-all border-b-2 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+                className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all text-center whitespace-nowrap cursor-pointer flex items-center justify-center gap-1.5 ${
                   profileActiveTab === 'invoices'
-                    ? 'border-emerald-700 text-emerald-800'
-                    : 'border-transparent text-stone-400 hover:text-stone-700'
+                    ? 'bg-white dark:bg-stone-900 text-stone-800 dark:text-stone-200 shadow-xs'
+                    : 'text-stone-500 hover:text-stone-800 dark:text-stone-400'
                 }`}
               >
                 <FileText className="w-3.5 h-3.5" />
@@ -722,7 +757,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
             </div>
 
             {/* Profile Content Body */}
-            <div className="p-6 overflow-y-auto flex-1 space-y-4">
+            <div className="space-y-4 pt-1">
               {profileActiveTab === 'packages' ? (
                 /* Packages & Multi-Session Tracking Section */
                 <div className="space-y-4">
@@ -925,105 +960,97 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                 </div>
               )}
             </div>
-
-            {/* Profile Footer */}
-            <div className="p-4 border-t border-stone-100 flex items-center justify-end bg-stone-50/50">
-              <button
-                onClick={() => setSelectedClientForProfile(null)}
-                className="px-5 py-2 text-xs font-bold rounded-xl bg-stone-800 hover:bg-stone-900 text-white transition-colors cursor-pointer"
-              >
-                إغلاق الملف
-              </button>
-            </div>
           </div>
-        </div>
-      )}
+        )}
+      </SlideOverDrawer>
 
       {/* MODAL 2: إضافة أو تعديل عميل (Add / Edit Client Modal) */}
       {isAddEditModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/40 backdrop-blur-xs">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-[#0f3b2c]/30 backdrop-blur-md">
           <div 
-            className="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-stone-200 overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+            className="w-full max-w-md bg-gradient-to-b from-[#fdfbf7] via-[#fcfaf5] to-[#f7f4ed] dark:from-stone-900 dark:via-stone-900 dark:to-stone-950 rounded-3xl shadow-[0_25px_70px_-15px_rgba(15,59,44,0.25)] border border-stone-200/90 dark:border-white/10 overflow-hidden animate-in fade-in zoom-in-95 duration-200 max-h-[92vh] flex flex-col"
             onClick={(e) => e.stopPropagation()}
             dir="rtl"
           >
             {/* Modal Header */}
-            <div className="px-6 py-4.5 border-b border-stone-100 flex items-center justify-between bg-stone-50/70">
+            <div className="px-6 py-4.5 border-b border-stone-200/70 dark:border-stone-800 flex items-center justify-between bg-white/70 dark:bg-stone-900/70 backdrop-blur-md sticky top-0 z-10 shadow-2xs">
               <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-100">
-                  <Users className="w-5 h-5" />
+                <div className="w-10 h-10 rounded-2xl bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 flex items-center justify-center border border-emerald-500/25 shadow-2xs">
+                  <Users className="w-5 h-5 text-emerald-700 dark:text-emerald-400" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-stone-800 text-base">
+                  <h3 className="font-bold text-stone-900 dark:text-stone-100 text-base">
                     {editingClientId ? 'تعديل بيانات العميل' : 'إضافة عميل جديد'}
                   </h3>
-                  <p className="text-xs text-stone-400">تسجيل وتحديث بيانات العميل في النظام</p>
+                  <p className="text-xs text-stone-500 dark:text-stone-400">تسجيل وتحديث بيانات العميل في النظام</p>
                 </div>
               </div>
               <button
                 onClick={() => setIsAddEditModalOpen(false)}
-                className="p-1.5 rounded-xl text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition-colors cursor-pointer"
+                className="p-1.5 rounded-xl text-stone-400 hover:text-stone-700 hover:bg-stone-200/50 dark:hover:bg-stone-800 transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Form */}
-            <form onSubmit={handleFormSubmit} className="p-6 space-y-4 text-right">
-              {formError && (
-                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 shrink-0" />
-                  <span>{formError}</span>
+            <form onSubmit={handleFormSubmit} className="flex-1 flex flex-col overflow-hidden">
+              <div className="p-6 space-y-4 text-right overflow-y-auto silk-scrollbar flex-1">
+                {formError && (
+                  <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                    <span>{formError}</span>
+                  </div>
+                )}
+
+                {/* Name */}
+                <div>
+                  <label className="block text-xs font-bold text-stone-700 mb-1">
+                    اسم العميل بالكامل <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="مثال: سارة أحمد الشريف"
+                    value={formName}
+                    onChange={(e) => setFormName(e.target.value)}
+                    className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-stone-200 bg-white focus:outline-hidden focus:border-emerald-600 transition-colors text-stone-800 font-medium"
+                  />
                 </div>
-              )}
 
-              {/* Name */}
-              <div>
-                <label className="block text-xs font-bold text-stone-700 mb-1">
-                  اسم العميل بالكامل <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="مثال: سارة أحمد الشريف"
-                  value={formName}
-                  onChange={(e) => setFormName(e.target.value)}
-                  className="w-full px-3.5 py-2 text-sm rounded-xl border border-stone-200 bg-white focus:outline-hidden focus:border-emerald-600 transition-colors text-stone-800 font-medium"
-                />
+                {/* Phone */}
+                <div>
+                  <label className="block text-xs font-bold text-stone-700 mb-1">
+                    رقم الهاتف للتواصل <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="tel"
+                    required
+                    placeholder="مثال: 01012345678"
+                    value={formPhone}
+                    onChange={(e) => setFormPhone(e.target.value)}
+                    className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-stone-200 bg-white focus:outline-hidden focus:border-emerald-600 transition-colors text-stone-800 font-mono"
+                    dir="ltr"
+                  />
+                </div>
+
+                {/* Medical History */}
+                <div>
+                  <label className="block text-xs font-bold text-stone-700 mb-1">
+                    الملاحظات الطبية أو التفضيلات (اختياري)
+                  </label>
+                  <textarea
+                    rows={3}
+                    placeholder="مثال: حساسية جلدية، ضغط دم منضبط، تفضيل تدليك خفيف..."
+                    value={formMedicalHistory}
+                    onChange={(e) => setFormMedicalHistory(e.target.value)}
+                    className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-stone-200 bg-white focus:outline-hidden focus:border-emerald-600 transition-colors text-stone-800 resize-none"
+                  />
+                </div>
               </div>
 
-              {/* Phone */}
-              <div>
-                <label className="block text-xs font-bold text-stone-700 mb-1">
-                  رقم الهاتف للتواصل <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="tel"
-                  required
-                  placeholder="مثال: 01012345678"
-                  value={formPhone}
-                  onChange={(e) => setFormPhone(e.target.value)}
-                  className="w-full px-3.5 py-2 text-sm rounded-xl border border-stone-200 bg-white focus:outline-hidden focus:border-emerald-600 transition-colors text-stone-800 font-mono"
-                  dir="ltr"
-                />
-              </div>
-
-              {/* Medical History */}
-              <div>
-                <label className="block text-xs font-bold text-stone-700 mb-1">
-                  الملاحظات الطبية أو التفضيلات (اختياري)
-                </label>
-                <textarea
-                  rows={3}
-                  placeholder="مثال: حساسية جلدية، ضغط دم منضبط، تفضيل تدليك خفيف..."
-                  value={formMedicalHistory}
-                  onChange={(e) => setFormMedicalHistory(e.target.value)}
-                  className="w-full px-3.5 py-2 text-sm rounded-xl border border-stone-200 bg-white focus:outline-hidden focus:border-emerald-600 transition-colors text-stone-800 resize-none"
-                />
-              </div>
-
-              {/* Actions */}
-              <div className="pt-4 flex items-center justify-end gap-2 border-t border-stone-100">
+              {/* Actions Footer */}
+              <div className="p-4 px-6 flex items-center justify-end gap-2 border-t border-stone-200/70 dark:border-stone-800 bg-white/70 dark:bg-stone-900/70 backdrop-blur-md sticky bottom-0 z-10 shadow-2xs">
                 <button
                   type="button"
                   onClick={() => setIsAddEditModalOpen(false)}
@@ -1034,7 +1061,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-5 py-2 text-xs font-bold rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white transition-colors cursor-pointer disabled:opacity-50"
+                  className="px-5 py-2 text-xs font-bold rounded-xl bg-[#0f3b2c] hover:bg-[#164e3b] text-[#fbf8ee] transition-colors cursor-pointer shadow-sm disabled:opacity-50"
                 >
                   {isSubmitting ? 'جاري الحفظ...' : editingClientId ? 'حفظ التعديلات' : 'إضافة العميل'}
                 </button>
@@ -1046,33 +1073,34 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
 
       {/* MODAL 3: إسناد باقة جديدة للعميل (Assign New Package Modal) */}
       {isAssignPackageModalOpen && selectedClientForProfile && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/40 backdrop-blur-xs">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-[#0f3b2c]/30 backdrop-blur-md">
           <div
-            className="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-stone-200 overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+            className="w-full max-w-md bg-gradient-to-b from-[#fdfbf7] via-[#fcfaf5] to-[#f7f4ed] dark:from-stone-900 dark:via-stone-900 dark:to-stone-950 rounded-3xl shadow-[0_25px_70px_-15px_rgba(15,59,44,0.25)] border border-stone-200/90 dark:border-white/10 overflow-hidden animate-in fade-in zoom-in-95 duration-200 max-h-[92vh] flex flex-col"
             onClick={(e) => e.stopPropagation()}
             dir="rtl"
           >
             {/* Header */}
-            <div className="px-6 py-4.5 border-b border-stone-100 flex items-center justify-between bg-stone-50/70">
+            <div className="px-6 py-4.5 border-b border-stone-200/70 dark:border-stone-800 flex items-center justify-between bg-white/70 dark:bg-stone-900/70 backdrop-blur-md sticky top-0 z-10 shadow-2xs">
               <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center border border-purple-100">
-                  <Layers className="w-5 h-5" />
+                <div className="w-10 h-10 rounded-2xl bg-purple-500/15 text-purple-800 dark:text-purple-300 flex items-center justify-center border border-purple-500/25 shadow-2xs">
+                  <Layers className="w-5 h-5 text-purple-700 dark:text-purple-400" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-stone-800 text-base">إسناد باقة وجلسات للعميل</h3>
-                  <p className="text-xs text-stone-400">{selectedClientForProfile.name}</p>
+                  <h3 className="font-bold text-stone-900 dark:text-stone-100 text-base">إسناد باقة وجلسات للعميل</h3>
+                  <p className="text-xs text-stone-500 dark:text-stone-400">{selectedClientForProfile.name}</p>
                 </div>
               </div>
               <button
                 onClick={() => setIsAssignPackageModalOpen(false)}
-                className="p-1.5 rounded-xl text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition-colors cursor-pointer"
+                className="p-1.5 rounded-xl text-stone-400 hover:text-stone-700 hover:bg-stone-200/50 dark:hover:bg-stone-800 transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Form */}
-            <form onSubmit={handleAssignPackageSubmit} className="p-6 space-y-4 text-right">
+            <form onSubmit={handleAssignPackageSubmit} className="flex-1 flex flex-col overflow-hidden">
+              <div className="p-6 space-y-4 text-right overflow-y-auto silk-scrollbar flex-1">
               {assignPackageError && (
                 <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
                   <AlertCircle className="w-4 h-4 shrink-0" />
@@ -1240,26 +1268,27 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                   className="w-full px-3.5 py-2 text-sm rounded-xl border border-stone-200 bg-white focus:outline-hidden focus:border-emerald-600 text-stone-800 resize-none"
                 />
               </div>
+            </div>
 
-              {/* Submit Buttons */}
-              <div className="pt-2 flex items-center justify-end gap-2 border-t border-stone-100">
-                <button
-                  type="button"
-                  onClick={() => setIsAssignPackageModalOpen(false)}
-                  disabled={isSubmittingPackage}
-                  className="px-4 py-2 text-xs font-bold rounded-xl text-stone-500 hover:bg-stone-100 transition-colors cursor-pointer"
-                >
-                  إلغاء
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmittingPackage}
-                  className="px-5 py-2 text-xs font-bold rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white transition-colors cursor-pointer disabled:opacity-50"
-                >
-                  {isSubmittingPackage ? 'جاري الحفظ...' : 'حفظ وإسناد الباقة'}
-                </button>
-              </div>
-            </form>
+            {/* Submit Buttons */}
+            <div className="p-4 px-6 flex items-center justify-end gap-2 border-t border-stone-200/70 dark:border-stone-800 bg-white/70 dark:bg-stone-900/70 backdrop-blur-md sticky bottom-0 z-10 shadow-2xs">
+              <button
+                type="button"
+                onClick={() => setIsAssignPackageModalOpen(false)}
+                disabled={isSubmittingPackage}
+                className="px-4 py-2 text-xs font-bold rounded-xl text-stone-500 hover:bg-stone-100 transition-colors cursor-pointer"
+              >
+                إلغاء
+              </button>
+              <button
+                type="submit"
+                disabled={isSubmittingPackage}
+                className="px-5 py-2 text-xs font-bold rounded-xl bg-[#0f3b2c] hover:bg-[#164e3b] text-[#fbf8ee] transition-colors cursor-pointer shadow-sm disabled:opacity-50"
+              >
+                {isSubmittingPackage ? 'جاري الحفظ...' : 'حفظ وإسناد الباقة'}
+              </button>
+            </div>
+          </form>
           </div>
         </div>
       )}

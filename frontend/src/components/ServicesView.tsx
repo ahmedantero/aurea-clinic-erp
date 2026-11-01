@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Sparkles, 
   Layers, 
@@ -19,6 +19,8 @@ import {
   Activity
 } from 'lucide-react';
 import { ServiceItem, CategoryItem, PackageItem } from '../types';
+import { Pagination } from './ui/Pagination';
+import { usePagination } from '../hooks/usePagination';
 
 interface ServicesViewProps {
   services: ServiceItem[];
@@ -55,6 +57,13 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
   onUpdatePackage,
   onDeletePackage,
 }) => {
+  // Auto-refresh services, categories, and packages on mount
+  useEffect(() => {
+    onRefreshServices();
+    onRefreshCategories();
+    if (onRefreshPackages) onRefreshPackages();
+  }, []);
+
   // Navigation tabs: 'services' | 'categories' | 'packages'
   const [activeTab, setActiveTab] = useState<'services' | 'categories' | 'packages'>('services');
 
@@ -436,6 +445,20 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
     return matchesSearch && matchesCategory;
   });
 
+  // Luxury Pagination Controller for Services Table
+  const {
+    currentPage: servicePage,
+    setCurrentPage: setServicePage,
+    pageSize: servicePageSize,
+    setPageSize: setServicePageSize,
+    paginatedData: paginatedServices,
+    resetPage: resetServicePage,
+  } = usePagination(filteredServices, { initialPageSize: 10 });
+
+  useEffect(() => {
+    resetServicePage();
+  }, [serviceSearch, selectedCategoryFilter]);
+
   // Filtered Categories
   const filteredCategories = categories.filter((c) =>
     c.name.toLowerCase().includes(categorySearch.toLowerCase())
@@ -479,7 +502,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
           {activeTab === 'services' && (
             <button
               onClick={handleOpenAddServiceModal}
-              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-medium text-sm shadow-xs transition-colors cursor-pointer"
+              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#0f3b2c] hover:bg-[#164e3b] text-[#fbf8ee] font-bold text-sm shadow-md shadow-emerald-950/15 transition-all cursor-pointer"
             >
               <Plus className="w-4 h-4" />
               <span>إضافة خدمة جديدة</span>
@@ -489,7 +512,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
           {activeTab === 'categories' && (
             <button
               onClick={handleOpenAddCategoryModal}
-              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-medium text-sm shadow-xs transition-colors cursor-pointer"
+              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#0f3b2c] hover:bg-[#164e3b] text-[#fbf8ee] font-bold text-sm shadow-md shadow-emerald-950/15 transition-all cursor-pointer"
             >
               <Plus className="w-4 h-4" />
               <span>إضافة تصنيف جديد</span>
@@ -499,7 +522,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
           {activeTab === 'packages' && (
             <button
               onClick={handleOpenAddPackageModal}
-              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-medium text-sm shadow-xs transition-colors cursor-pointer"
+              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#0f3b2c] hover:bg-[#164e3b] text-[#fbf8ee] font-bold text-sm shadow-md shadow-emerald-950/15 transition-all cursor-pointer"
             >
               <Plus className="w-4 h-4" />
               <span>إضافة باقة جديدة</span>
@@ -510,61 +533,61 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white p-5 rounded-2xl border border-stone-200/80 shadow-xs flex items-center justify-between">
+        <div className="bg-gradient-to-br from-white via-[#fcfaf6] to-[#f8f5ee] dark:from-stone-900 dark:via-stone-900/90 dark:to-stone-950 p-5 rounded-2xl border border-stone-200/90 dark:border-white/10 shadow-xs flex items-center justify-between">
           <div>
-            <p className="text-xs font-semibold text-stone-400">إجمالي الخدمات المعتمدة</p>
-            <h3 className="text-2xl font-bold text-stone-800 mt-1">{totalServices}</h3>
+            <p className="text-xs font-semibold text-stone-500 dark:text-stone-400">إجمالي الخدمات المعتمدة</p>
+            <h3 className="text-2xl font-black text-stone-900 dark:text-white mt-1">{totalServices}</h3>
             <p className="text-xs text-stone-400 mt-0.5">جلسة وخدمة علاجية</p>
           </div>
-          <div className="w-12 h-12 rounded-xl bg-stone-50 border border-stone-200 flex items-center justify-center text-stone-600">
+          <div className="w-12 h-12 rounded-2xl bg-[#0f3b2c]/10 text-[#0f3b2c] dark:bg-emerald-500/10 dark:text-emerald-400 border border-[#0f3b2c]/15 flex items-center justify-center">
             <Sparkles className="w-6 h-6" />
           </div>
         </div>
 
-        <div className="bg-white p-5 rounded-2xl border border-stone-200/80 shadow-xs flex items-center justify-between">
+        <div className="bg-gradient-to-br from-white via-[#fcfaf6] to-[#f8f5ee] dark:from-stone-900 dark:via-stone-900/90 dark:to-stone-950 p-5 rounded-2xl border border-stone-200/90 dark:border-white/10 shadow-xs flex items-center justify-between">
           <div>
-            <p className="text-xs font-semibold text-stone-400">أقسام وتصنيفات المركز</p>
-            <h3 className="text-2xl font-bold text-stone-800 mt-1">{totalCategories}</h3>
+            <p className="text-xs font-semibold text-stone-500 dark:text-stone-400">أقسام وتصنيفات المركز</p>
+            <h3 className="text-2xl font-black text-[#0f3b2c] dark:text-emerald-400 mt-1">{totalCategories}</h3>
             <p className="text-xs text-stone-400 mt-0.5">أقسام وتخصصات نشطة</p>
           </div>
-          <div className="w-12 h-12 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-700">
+          <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 text-[#0f3b2c] dark:text-emerald-400 border border-emerald-500/20 flex items-center justify-center">
             <FolderTree className="w-6 h-6" />
           </div>
         </div>
 
-        <div className="bg-white p-5 rounded-2xl border border-stone-200/80 shadow-xs flex items-center justify-between">
+        <div className="bg-gradient-to-br from-white via-[#fcfaf6] to-[#f8f5ee] dark:from-stone-900 dark:via-stone-900/90 dark:to-stone-950 p-5 rounded-2xl border border-stone-200/90 dark:border-white/10 shadow-xs flex items-center justify-between">
           <div>
-            <p className="text-xs font-semibold text-stone-400">باقات العروض المتعددة</p>
-            <h3 className="text-2xl font-bold text-purple-800 mt-1">{packages.length}</h3>
-            <p className="text-xs text-purple-600 font-medium mt-0.5">باقات جلسات نشطة (POS)</p>
+            <p className="text-xs font-semibold text-stone-500 dark:text-stone-400">باقات العروض المتعددة</p>
+            <h3 className="text-2xl font-black text-amber-700 dark:text-amber-400 mt-1">{packages.length}</h3>
+            <p className="text-xs text-amber-600 font-medium mt-0.5">باقات جلسات نشطة (POS)</p>
           </div>
-          <div className="w-12 h-12 rounded-xl bg-purple-50 border border-purple-100 flex items-center justify-center text-purple-700">
+          <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 flex items-center justify-center">
             <Layers className="w-6 h-6" />
           </div>
         </div>
 
-        <div className="bg-white p-5 rounded-2xl border border-stone-200/80 shadow-xs flex items-center justify-between">
+        <div className="bg-gradient-to-br from-white via-[#fcfaf6] to-[#f8f5ee] dark:from-stone-900 dark:via-stone-900/90 dark:to-stone-950 p-5 rounded-2xl border border-stone-200/90 dark:border-white/10 shadow-xs flex items-center justify-between">
           <div>
-            <p className="text-xs font-semibold text-stone-400">أعلى سعر جلسة / باقة</p>
-            <h3 className="text-2xl font-bold text-amber-700 mt-1">
+            <p className="text-xs font-semibold text-stone-500 dark:text-stone-400">أعلى سعر جلسة / باقة</p>
+            <h3 className="text-2xl font-black text-stone-900 dark:text-white mt-1">
               {highestPrice.toLocaleString()} <span className="text-xs font-normal text-stone-500">ج.م</span>
             </h3>
-            <p className="text-xs text-amber-600 font-medium mt-0.5">الخدمات التخصصية</p>
+            <p className="text-xs text-[#0f3b2c] dark:text-emerald-400 font-medium mt-0.5">الخدمات التخصصية</p>
           </div>
-          <div className="w-12 h-12 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-600">
+          <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 flex items-center justify-center">
             <TrendingUp className="w-6 h-6" />
           </div>
         </div>
       </div>
 
       {/* Main Tabbed Switcher */}
-      <div className="bg-white rounded-2xl border border-stone-200/80 p-2 shadow-xs flex items-center gap-2">
+      <div className="bg-white/80 dark:bg-stone-900/80 backdrop-blur-xl rounded-2xl border border-stone-200/90 dark:border-white/10 p-2 shadow-xs flex items-center gap-2">
         <button
           onClick={() => setActiveTab('services')}
           className={`flex-1 py-3 px-4 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2.5 cursor-pointer ${
             activeTab === 'services'
-              ? 'bg-emerald-700 text-white shadow-xs'
-              : 'text-stone-600 hover:text-stone-900 hover:bg-stone-50'
+              ? 'bg-[#0f3b2c] text-[#fbf8ee] shadow-sm'
+              : 'text-stone-600 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white hover:bg-stone-50 dark:hover:bg-stone-800'
           }`}
         >
           <Sparkles className="w-4 h-4" />
@@ -572,8 +595,8 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
           <span
             className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
               activeTab === 'services'
-                ? 'bg-emerald-800 text-white'
-                : 'bg-stone-100 text-stone-600'
+                ? 'bg-[#164e3b] text-[#fbf8ee]'
+                : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300'
             }`}
           >
             {totalServices}
@@ -584,8 +607,8 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
           onClick={() => setActiveTab('categories')}
           className={`flex-1 py-3 px-4 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2.5 cursor-pointer ${
             activeTab === 'categories'
-              ? 'bg-emerald-700 text-white shadow-xs'
-              : 'text-stone-600 hover:text-stone-900 hover:bg-stone-50'
+              ? 'bg-[#0f3b2c] text-[#fbf8ee] shadow-sm'
+              : 'text-stone-600 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white hover:bg-stone-50 dark:hover:bg-stone-800'
           }`}
         >
           <FolderTree className="w-4 h-4" />
@@ -593,8 +616,8 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
           <span
             className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
               activeTab === 'categories'
-                ? 'bg-emerald-800 text-white'
-                : 'bg-stone-100 text-stone-600'
+                ? 'bg-[#164e3b] text-[#fbf8ee]'
+                : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300'
             }`}
           >
             {totalCategories}
@@ -605,8 +628,8 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
           onClick={() => setActiveTab('packages')}
           className={`flex-1 py-3 px-4 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2.5 cursor-pointer ${
             activeTab === 'packages'
-              ? 'bg-emerald-700 text-white shadow-xs'
-              : 'text-stone-600 hover:text-stone-900 hover:bg-stone-50'
+              ? 'bg-[#0f3b2c] text-[#fbf8ee] shadow-sm'
+              : 'text-stone-600 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white hover:bg-stone-50 dark:hover:bg-stone-800'
           }`}
         >
           <Layers className="w-4 h-4" />
@@ -614,8 +637,8 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
           <span
             className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
               activeTab === 'packages'
-                ? 'bg-emerald-800 text-white'
-                : 'bg-stone-100 text-stone-600'
+                ? 'bg-[#164e3b] text-[#fbf8ee]'
+                : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300'
             }`}
           >
             {packages.length}
@@ -629,18 +652,18 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
       {activeTab === 'services' && (
         <div className="space-y-4">
           {/* Search & Category Filter Pills */}
-          <div className="bg-white p-4 rounded-2xl border border-stone-200/80 shadow-xs flex flex-col md:flex-row items-center justify-between gap-3">
+          <div className="bg-white/80 dark:bg-stone-900/80 backdrop-blur-xl p-4 rounded-2xl border border-stone-200/90 dark:border-white/10 shadow-xs flex flex-col md:flex-row items-center justify-between gap-3">
             {/* Category Filter Pills */}
             <div className="flex items-center gap-1.5 overflow-x-auto w-full md:w-auto pb-1 md:pb-0 scrollbar-none">
               <button
                 onClick={() => setSelectedCategoryFilter('الكل')}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
                   selectedCategoryFilter === 'الكل'
-                    ? 'bg-stone-800 text-white'
-                    : 'bg-stone-100 text-stone-600 hover:bg-stone-200/70'
+                    ? 'bg-[#0f3b2c] text-[#fbf8ee]'
+                    : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 hover:bg-stone-200/70'
                 }`}
               >
-                الكل ({services.length})
+                جميع الأقسام ({services.length})
               </button>
               {categories.map((c) => {
                 const count = services.filter((s) => s.category === c.name).length;
@@ -648,10 +671,10 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                   <button
                     key={c.id}
                     onClick={() => setSelectedCategoryFilter(c.name)}
-                    className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
                       selectedCategoryFilter === c.name
-                        ? 'bg-emerald-700 text-white'
-                        : 'bg-stone-100 text-stone-600 hover:bg-stone-200/70'
+                        ? 'bg-[#0f3b2c] text-[#fbf8ee]'
+                        : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 hover:bg-stone-200/70'
                     }`}
                   >
                     {c.name} ({count})
@@ -661,24 +684,24 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
             </div>
 
             {/* Search Input */}
-            <div className="relative w-full md:w-72 shrink-0">
+            <div className="relative w-full md:w-72">
               <Search className="w-4 h-4 absolute right-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
               <input
                 type="text"
                 placeholder="بحث باسم الخدمة..."
                 value={serviceSearch}
                 onChange={(e) => setServiceSearch(e.target.value)}
-                className="w-full pr-10 pl-4 py-2 text-xs rounded-xl bg-stone-50/70 border border-stone-200 focus:bg-white focus:outline-hidden focus:border-emerald-600 text-stone-800 placeholder-stone-400 transition-colors"
+                className="w-full pr-10 pl-4 py-2 text-xs rounded-xl bg-white/90 dark:bg-stone-800 border border-stone-200/90 dark:border-stone-700 focus:outline-hidden focus:border-[#0f3b2c] text-stone-800 dark:text-stone-200 placeholder-stone-400 transition-colors shadow-2xs"
               />
             </div>
           </div>
 
           {/* Services Data Table */}
-          <div className="bg-white rounded-2xl border border-stone-200/80 shadow-xs overflow-hidden">
+          <div className="bg-white/85 dark:bg-stone-900/85 backdrop-blur-xl rounded-3xl border border-stone-200/90 dark:border-white/10 shadow-[0_15px_40px_-12px_rgba(15,59,44,0.06)] overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-right border-collapse">
-                <thead>
-                  <tr className="bg-stone-50/70 border-b border-stone-200/80 text-xs font-semibold text-stone-600">
+                <thead className="sticky top-0 z-10 bg-white/95 dark:bg-stone-900/95 backdrop-blur-md border-b border-stone-200/90 dark:border-stone-800 shadow-2xs">
+                  <tr className="text-xs font-bold text-stone-700 dark:text-stone-300 uppercase tracking-wider">
                     <th className="py-3.5 px-6">اسم الخدمة (Service Name)</th>
                     <th className="py-3.5 px-6">التصنيف (Category)</th>
                     <th className="py-3.5 px-6">عدد الجلسات (Sessions)</th>
@@ -696,7 +719,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                       </td>
                     </tr>
                   ) : (
-                    filteredServices.map((service) => (
+                    paginatedServices.map((service) => (
                       <tr key={service.id} className="hover:bg-stone-50/50 transition-colors">
                         {/* Service Name */}
                         <td className="py-4 px-6">
@@ -774,6 +797,16 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                 </tbody>
               </table>
             </div>
+
+            <Pagination
+              currentPage={servicePage}
+              totalItems={filteredServices.length}
+              pageSize={servicePageSize}
+              onPageChange={setServicePage}
+              onPageSizeChange={setServicePageSize}
+              pageSizeOptions={[10, 20, 50, 100]}
+              itemLabel="خدمة"
+            />
           </div>
         </div>
       )}
@@ -964,28 +997,28 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
       {/* MODAL 1: ADD / EDIT SERVICE MODAL */}
       {/* ======================================================== */}
       {isServiceModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/40 backdrop-blur-xs">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-[#0f3b2c]/25 backdrop-blur-md">
           <div
-            className="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-stone-200 overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+            className="w-full max-w-md bg-gradient-to-b from-[#fdfbf7] via-[#fcfaf5] to-[#f7f4ed] dark:from-stone-900 dark:via-stone-900 dark:to-stone-950 rounded-3xl shadow-[0_25px_70px_-15px_rgba(15,59,44,0.22)] border border-stone-200/90 dark:border-white/10 overflow-hidden animate-in fade-in zoom-in-95 duration-200 flex flex-col"
             onClick={(e) => e.stopPropagation()}
             dir="rtl"
           >
             {/* Modal Header */}
-            <div className="px-6 py-4.5 border-b border-stone-100 flex items-center justify-between bg-stone-50/70">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-100">
-                  <Sparkles className="w-5 h-5" />
+            <div className="px-6 py-4.5 border-b border-stone-200/70 dark:border-stone-800 flex items-center justify-between bg-white/60 dark:bg-stone-900/60 backdrop-blur-md shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-[#0f3b2c]/10 dark:bg-emerald-500/10 flex items-center justify-center border border-[#0f3b2c]/15 text-[#0f3b2c] dark:text-emerald-400">
+                  <Sparkles className="w-5 h-5 text-[#0f3b2c] dark:text-emerald-400" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-stone-800 text-base">
+                  <h3 className="font-black text-stone-900 dark:text-stone-100 text-sm">
                     {editingServiceId ? 'تعديل بيانات الخدمة' : 'إضافة خدمة جديدة'}
                   </h3>
-                  <p className="text-xs text-stone-400">تحديد اسم الخدمة، التصنيف، والسعر الأساسي</p>
+                  <p className="text-[11px] text-stone-500 dark:text-stone-400 mt-0.5">تحديد اسم الخدمة، التصنيف، والسعر الأساسي</p>
                 </div>
               </div>
               <button
                 onClick={() => setIsServiceModalOpen(false)}
-                className="p-1.5 rounded-xl text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition-colors cursor-pointer"
+                className="p-1.5 rounded-xl text-stone-400 hover:text-stone-700 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1001,8 +1034,8 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
               )}
 
               {/* 1. Service Name */}
-              <div>
-                <label className="block text-xs font-bold text-stone-700 mb-1">
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-stone-700 dark:text-stone-300">
                   اسم الخدمة (Service Name) <span className="text-rose-500">*</span>
                 </label>
                 <input
@@ -1011,20 +1044,20 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                   placeholder="مثال: جلسة تقشير وتجديد البشرة"
                   value={serviceName}
                   onChange={(e) => setServiceName(e.target.value)}
-                  className="w-full px-3.5 py-2 text-sm rounded-xl border border-stone-200 bg-white focus:outline-hidden focus:border-emerald-600 transition-colors text-stone-800 font-medium"
+                  className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-stone-200/90 dark:border-stone-700 bg-white/90 dark:bg-stone-800 focus:outline-hidden focus:border-[#0f3b2c] focus:ring-2 focus:ring-[#0f3b2c]/10 transition-colors text-stone-800 dark:text-stone-200 font-medium"
                 />
               </div>
 
               {/* 2. Category Dropdown */}
-              <div>
-                <label className="block text-xs font-bold text-stone-700 mb-1">
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-stone-700 dark:text-stone-300">
                   التصنيف / القسم (Category) <span className="text-rose-500">*</span>
                 </label>
                 <select
                   required
                   value={serviceCategoryId}
                   onChange={(e) => setServiceCategoryId(e.target.value)}
-                  className="w-full px-3.5 py-2 text-sm rounded-xl border border-stone-200 bg-white focus:outline-hidden focus:border-emerald-600 transition-colors text-stone-800 font-medium"
+                  className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-stone-200/90 dark:border-stone-700 bg-white/90 dark:bg-stone-800 focus:outline-hidden focus:border-[#0f3b2c] focus:ring-2 focus:ring-[#0f3b2c]/10 transition-colors text-stone-800 dark:text-stone-200 font-medium"
                 >
                   <option value="" disabled>
                     -- اختر التصنيف التابع له --
@@ -1044,8 +1077,8 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
 
               {/* 3. Base Price & Duration */}
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 mb-1">
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-stone-700 dark:text-stone-300">
                     السعر الأساسي (ج.م) <span className="text-rose-500">*</span>
                   </label>
                   <input
@@ -1056,12 +1089,12 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                     placeholder="مثال: 350"
                     value={serviceBasePrice}
                     onChange={(e) => setServiceBasePrice(e.target.value)}
-                    className="w-full px-3.5 py-2 text-sm rounded-xl border border-stone-200 bg-white focus:outline-hidden focus:border-emerald-600 transition-colors text-stone-800 font-bold"
+                    className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-stone-200/90 dark:border-stone-700 bg-white/90 dark:bg-stone-800 focus:outline-hidden focus:border-[#0f3b2c] focus:ring-2 focus:ring-[#0f3b2c]/10 transition-colors text-stone-800 dark:text-stone-200 font-bold"
                   />
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 mb-1">
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-stone-700 dark:text-stone-300">
                     مدة الجلسة (بالدقائق)
                   </label>
                   <input
@@ -1071,18 +1104,18 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                     placeholder="45"
                     value={serviceDuration}
                     onChange={(e) => setServiceDuration(e.target.value)}
-                    className="w-full px-3.5 py-2 text-sm rounded-xl border border-stone-200 bg-white focus:outline-hidden focus:border-emerald-600 transition-colors text-stone-800"
+                    className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-stone-200/90 dark:border-stone-700 bg-white/90 dark:bg-stone-800 focus:outline-hidden focus:border-[#0f3b2c] focus:ring-2 focus:ring-[#0f3b2c]/10 transition-colors text-stone-800 dark:text-stone-200"
                   />
                 </div>
               </div>
 
               {/* Sessions Count for POS Multi-session automation */}
-              <div className="p-3.5 rounded-2xl bg-stone-50 border border-stone-200/80 space-y-1.5">
+              <div className="p-3.5 rounded-2xl bg-white/70 dark:bg-stone-800/60 border border-stone-200/80 dark:border-stone-700 space-y-1.5 shadow-xs">
                 <div className="flex items-center justify-between">
-                  <label className="block text-xs font-bold text-stone-700">
+                  <label className="block text-xs font-bold text-stone-700 dark:text-stone-300">
                     عدد الجلسات (Sessions Count) <span className="text-rose-500">*</span>
                   </label>
-                  <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100/70 px-2 py-0.5 rounded-md border border-emerald-200">
+                  <span className="text-[10px] font-bold text-[#0f3b2c] dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
                     نظام باقات POS التلقائي
                   </span>
                 </div>
@@ -1094,16 +1127,16 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                   placeholder="1"
                   value={serviceSessionsCount}
                   onChange={(e) => setServiceSessionsCount(Math.max(1, parseInt(e.target.value) || 1))}
-                  className="w-full px-3.5 py-2 text-sm rounded-xl border border-stone-200 bg-white focus:outline-hidden focus:border-emerald-600 transition-colors text-stone-800 font-bold"
+                  className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-stone-200/90 dark:border-stone-700 bg-white dark:bg-stone-800 focus:outline-hidden focus:border-[#0f3b2c] focus:ring-2 focus:ring-[#0f3b2c]/10 transition-colors text-stone-800 dark:text-stone-200 font-bold"
                 />
-                <p className="text-[11px] text-stone-500 leading-relaxed">
+                <p className="text-[11px] text-stone-500 dark:text-stone-400 leading-relaxed">
                   إذا كان عدد الجلسات أكثر من 1 (مثلاً 6 أو 8 جلسات)، سينشئ النظام تلقائياً باقة جلسات للعميل عند أول حجز/دفع ليتم خصم الجلسات القادمة منها مجاناً.
                 </p>
               </div>
 
               {/* Optional: Max Price */}
-              <div>
-                <label className="block text-xs font-bold text-stone-700 mb-1">
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-stone-700 dark:text-stone-300">
                   أقصى سعر اختياري (ج.م) <span className="text-stone-400 font-normal">(في حال تفاوت الأسعار)</span>
                 </label>
                 <input
@@ -1113,23 +1146,23 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                   placeholder="مثال: 500 (اختياري)"
                   value={serviceMaxPrice}
                   onChange={(e) => setServiceMaxPrice(e.target.value)}
-                  className="w-full px-3.5 py-2 text-sm rounded-xl border border-stone-200 bg-white focus:outline-hidden focus:border-emerald-600 transition-colors text-stone-800"
+                  className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-stone-200/90 dark:border-stone-700 bg-white/90 dark:bg-stone-800 focus:outline-hidden focus:border-[#0f3b2c] focus:ring-2 focus:ring-[#0f3b2c]/10 transition-colors text-stone-800 dark:text-stone-200"
                 />
               </div>
 
               {/* Modal Actions */}
-              <div className="pt-4 flex items-center justify-end gap-2 border-t border-stone-100">
+              <div className="pt-4 flex items-center justify-end gap-2.5 border-t border-stone-200/70 dark:border-stone-800">
                 <button
                   type="button"
                   onClick={() => setIsServiceModalOpen(false)}
-                  className="px-4 py-2 text-xs font-semibold rounded-xl border border-stone-200 text-stone-600 hover:bg-stone-50 transition-colors cursor-pointer"
+                  className="px-4 py-2.5 text-xs font-bold rounded-xl border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 hover:bg-white/80 dark:hover:bg-stone-800 transition-colors cursor-pointer"
                 >
                   إلغاء
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmittingService || categories.length === 0}
-                  className="px-5 py-2 text-xs font-bold rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white transition-colors cursor-pointer disabled:opacity-50"
+                  className="px-5 py-2.5 text-xs font-bold rounded-xl bg-[#0f3b2c] hover:bg-[#164e3b] text-[#fbf8ee] shadow-md shadow-emerald-950/10 transition-colors cursor-pointer disabled:opacity-50"
                 >
                   {isSubmittingService
                     ? 'جاري الحفظ...'
@@ -1147,28 +1180,28 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
       {/* MODAL 2: ADD / EDIT CATEGORY MODAL */}
       {/* ======================================================== */}
       {isCategoryModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/40 backdrop-blur-xs">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-[#0f3b2c]/25 backdrop-blur-md">
           <div
-            className="w-full max-w-sm bg-white rounded-3xl shadow-2xl border border-stone-200 overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+            className="w-full max-w-sm bg-gradient-to-b from-[#fdfbf7] via-[#fcfaf5] to-[#f7f4ed] dark:from-stone-900 dark:via-stone-900 dark:to-stone-950 rounded-3xl shadow-[0_25px_70px_-15px_rgba(15,59,44,0.22)] border border-stone-200/90 dark:border-white/10 overflow-hidden animate-in fade-in zoom-in-95 duration-200 flex flex-col"
             onClick={(e) => e.stopPropagation()}
             dir="rtl"
           >
             {/* Modal Header */}
-            <div className="px-6 py-4.5 border-b border-stone-100 flex items-center justify-between bg-stone-50/70">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-100">
-                  <FolderTree className="w-5 h-5" />
+            <div className="px-6 py-4.5 border-b border-stone-200/70 dark:border-stone-800 flex items-center justify-between bg-white/60 dark:bg-stone-900/60 backdrop-blur-md shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-[#0f3b2c]/10 dark:bg-emerald-500/10 flex items-center justify-center border border-[#0f3b2c]/15 text-[#0f3b2c] dark:text-emerald-400">
+                  <FolderTree className="w-5 h-5 text-[#0f3b2c] dark:text-emerald-400" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-stone-800 text-base">
+                  <h3 className="font-black text-stone-900 dark:text-stone-100 text-sm">
                     {editingCategoryId ? 'تعديل اسم التصنيف' : 'إضافة تصنيف جديد'}
                   </h3>
-                  <p className="text-xs text-stone-400">تنظيم وتجميع الخدمات حسب القسم الطبي</p>
+                  <p className="text-[11px] text-stone-500 dark:text-stone-400 mt-0.5">تنظيم وتجميع الخدمات حسب القسم الطبي</p>
                 </div>
               </div>
               <button
                 onClick={() => setIsCategoryModalOpen(false)}
-                className="p-1.5 rounded-xl text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition-colors cursor-pointer"
+                className="p-1.5 rounded-xl text-stone-400 hover:text-stone-700 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1183,8 +1216,8 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                 </div>
               )}
 
-              <div>
-                <label className="block text-xs font-bold text-stone-700 mb-1">
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-stone-700 dark:text-stone-300">
                   اسم التصنيف / القسم <span className="text-rose-500">*</span>
                 </label>
                 <input
@@ -1193,23 +1226,23 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                   placeholder="مثال: تغذية علاجية، ليزر، عناية بالبشرة..."
                   value={categoryName}
                   onChange={(e) => setCategoryName(e.target.value)}
-                  className="w-full px-3.5 py-2 text-sm rounded-xl border border-stone-200 bg-white focus:outline-hidden focus:border-emerald-600 transition-colors text-stone-800 font-medium"
+                  className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-stone-200/90 dark:border-stone-700 bg-white/90 dark:bg-stone-800 focus:outline-hidden focus:border-[#0f3b2c] focus:ring-2 focus:ring-[#0f3b2c]/10 transition-colors text-stone-800 dark:text-stone-200 font-medium"
                 />
               </div>
 
               {/* Modal Actions */}
-              <div className="pt-4 flex items-center justify-end gap-2 border-t border-stone-100">
+              <div className="pt-4 flex items-center justify-end gap-2.5 border-t border-stone-200/70 dark:border-stone-800">
                 <button
                   type="button"
                   onClick={() => setIsCategoryModalOpen(false)}
-                  className="px-4 py-2 text-xs font-semibold rounded-xl border border-stone-200 text-stone-600 hover:bg-stone-50 transition-colors cursor-pointer"
+                  className="px-4 py-2.5 text-xs font-bold rounded-xl border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 hover:bg-white/80 dark:hover:bg-stone-800 transition-colors cursor-pointer"
                 >
                   إلغاء
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmittingCategory}
-                  className="px-5 py-2 text-xs font-bold rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white transition-colors cursor-pointer disabled:opacity-50"
+                  className="px-5 py-2.5 text-xs font-bold rounded-xl bg-[#0f3b2c] hover:bg-[#164e3b] text-[#fbf8ee] shadow-md shadow-emerald-950/10 transition-colors cursor-pointer disabled:opacity-50"
                 >
                   {isSubmittingCategory
                     ? 'جاري الحفظ...'
@@ -1227,28 +1260,28 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
       {/* MODAL 3: ADD / EDIT PACKAGE MODAL */}
       {/* ======================================================== */}
       {isPackageModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/40 backdrop-blur-xs">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-[#0f3b2c]/25 backdrop-blur-md">
           <div
-            className="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-stone-200 overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+            className="w-full max-w-md bg-gradient-to-b from-[#fdfbf7] via-[#fcfaf5] to-[#f7f4ed] dark:from-stone-900 dark:via-stone-900 dark:to-stone-950 rounded-3xl shadow-[0_25px_70px_-15px_rgba(15,59,44,0.22)] border border-stone-200/90 dark:border-white/10 overflow-hidden animate-in fade-in zoom-in-95 duration-200 flex flex-col"
             onClick={(e) => e.stopPropagation()}
             dir="rtl"
           >
             {/* Modal Header */}
-            <div className="px-6 py-4.5 border-b border-stone-100 flex items-center justify-between bg-stone-50/70">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center border border-purple-100">
-                  <Layers className="w-5 h-5" />
+            <div className="px-6 py-4.5 border-b border-stone-200/70 dark:border-stone-800 flex items-center justify-between bg-white/60 dark:bg-stone-900/60 backdrop-blur-md shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-[#0f3b2c]/10 dark:bg-emerald-500/10 flex items-center justify-center border border-[#0f3b2c]/15 text-[#0f3b2c] dark:text-emerald-400">
+                  <Layers className="w-5 h-5 text-[#0f3b2c] dark:text-emerald-400" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-stone-800 text-base">
+                  <h3 className="font-black text-stone-900 dark:text-stone-100 text-sm">
                     {editingPackageId ? 'تعديل بيانات الباقة' : 'إضافة باقة / عرض جديد'}
                   </h3>
-                  <p className="text-xs text-stone-400">تحديد عدد الجلسات، السعر، ونظام الحسم للعملاء</p>
+                  <p className="text-[11px] text-stone-500 dark:text-stone-400 mt-0.5">تحديد عدد الجلسات، السعر، ونظام الحسم للعملاء</p>
                 </div>
               </div>
               <button
                 onClick={() => setIsPackageModalOpen(false)}
-                className="p-1.5 rounded-xl text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition-colors cursor-pointer"
+                className="p-1.5 rounded-xl text-stone-400 hover:text-stone-700 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1264,8 +1297,8 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
               )}
 
               {/* 1. Package Name */}
-              <div>
-                <label className="block text-xs font-bold text-stone-700 mb-1">
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-stone-700 dark:text-stone-300">
                   اسم الباقة / العرض <span className="text-rose-500">*</span>
                 </label>
                 <input
@@ -1274,17 +1307,17 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                   placeholder="مثال: باقة الليزر الذهبية (6 جلسات) أو عرض العلاج الطبيعي"
                   value={packageName}
                   onChange={(e) => setPackageName(e.target.value)}
-                  className="w-full px-3.5 py-2 text-sm rounded-xl border border-stone-200 bg-white focus:outline-hidden focus:border-emerald-600 transition-colors text-stone-800 font-medium"
+                  className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-stone-200/90 dark:border-stone-700 bg-white/90 dark:bg-stone-800 focus:outline-hidden focus:border-[#0f3b2c] focus:ring-2 focus:ring-[#0f3b2c]/10 transition-colors text-stone-800 dark:text-stone-200 font-medium"
                 />
               </div>
 
               {/* 2. Sessions Count Input */}
-              <div className="p-3.5 rounded-2xl bg-purple-50/60 border border-purple-200/80 space-y-1.5">
+              <div className="p-3.5 rounded-2xl bg-white/70 dark:bg-stone-800/60 border border-stone-200/80 dark:border-stone-700 space-y-1.5 shadow-xs">
                 <div className="flex items-center justify-between">
-                  <label className="block text-xs font-bold text-purple-900">
+                  <label className="block text-xs font-bold text-stone-700 dark:text-stone-300">
                     عدد الجلسات الإجمالي (Sessions Count) <span className="text-rose-500">*</span>
                   </label>
-                  <span className="text-[10px] font-bold text-purple-800 bg-purple-100 px-2 py-0.5 rounded-md">
+                  <span className="text-[10px] font-bold text-[#0f3b2c] dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
                     نظام POS التلقائي
                   </span>
                 </div>
@@ -1296,17 +1329,17 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                   placeholder="6"
                   value={packageSessionsCount}
                   onChange={(e) => setPackageSessionsCount(Math.max(1, parseInt(e.target.value) || 1))}
-                  className="w-full px-3.5 py-2 text-sm rounded-xl border border-purple-200 bg-white focus:outline-hidden focus:border-purple-600 transition-colors text-stone-800 font-bold"
+                  className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-stone-200/90 dark:border-stone-700 bg-white dark:bg-stone-800 focus:outline-hidden focus:border-[#0f3b2c] focus:ring-2 focus:ring-[#0f3b2c]/10 transition-colors text-stone-800 dark:text-stone-200 font-bold"
                 />
-                <p className="text-[11px] text-purple-700 leading-relaxed">
+                <p className="text-[11px] text-stone-500 dark:text-stone-400 leading-relaxed">
                   عند حجز هذه الباقة للعميل، يقوم النظام بإنشاء رصيد باقة تلقائياً بعدد هذه الجلسات، واحتساب الجلسة الأولى، مع خصم الجلسات القادمة تلقائياً.
                 </p>
               </div>
 
               {/* 3. Pricing: Fixed Price OR Discount % */}
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 mb-1">
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-stone-700 dark:text-stone-300">
                     السعر الثابت للباقة (ج.م)
                   </label>
                   <input
@@ -1316,12 +1349,12 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                     placeholder="مثال: 1800"
                     value={packageFixedPrice}
                     onChange={(e) => setPackageFixedPrice(e.target.value)}
-                    className="w-full px-3.5 py-2 text-sm rounded-xl border border-stone-200 bg-white focus:outline-hidden focus:border-emerald-600 transition-colors text-stone-800 font-bold"
+                    className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-stone-200/90 dark:border-stone-700 bg-white/90 dark:bg-stone-800 focus:outline-hidden focus:border-[#0f3b2c] focus:ring-2 focus:ring-[#0f3b2c]/10 transition-colors text-stone-800 dark:text-stone-200 font-bold"
                   />
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 mb-1">
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-stone-700 dark:text-stone-300">
                     أو نسبة الخصم (%)
                   </label>
                   <input
@@ -1332,24 +1365,24 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                     placeholder="مثال: 20"
                     value={packageDiscountPercentage}
                     onChange={(e) => setPackageDiscountPercentage(e.target.value)}
-                    className="w-full px-3.5 py-2 text-sm rounded-xl border border-stone-200 bg-white focus:outline-hidden focus:border-emerald-600 transition-colors text-stone-800 font-bold"
+                    className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-stone-200/90 dark:border-stone-700 bg-white/90 dark:bg-stone-800 focus:outline-hidden focus:border-[#0f3b2c] focus:ring-2 focus:ring-[#0f3b2c]/10 transition-colors text-stone-800 dark:text-stone-200 font-bold"
                   />
                 </div>
               </div>
 
               {/* Modal Actions */}
-              <div className="pt-4 flex items-center justify-end gap-2 border-t border-stone-100">
+              <div className="pt-4 flex items-center justify-end gap-2.5 border-t border-stone-200/70 dark:border-stone-800">
                 <button
                   type="button"
                   onClick={() => setIsPackageModalOpen(false)}
-                  className="px-4 py-2 text-xs font-semibold rounded-xl border border-stone-200 text-stone-600 hover:bg-stone-50 transition-colors cursor-pointer"
+                  className="px-4 py-2.5 text-xs font-bold rounded-xl border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 hover:bg-white/80 dark:hover:bg-stone-800 transition-colors cursor-pointer"
                 >
                   إلغاء
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmittingPackage}
-                  className="px-5 py-2 text-xs font-bold rounded-xl bg-purple-700 hover:bg-purple-800 text-white transition-colors cursor-pointer disabled:opacity-50"
+                  className="px-5 py-2.5 text-xs font-bold rounded-xl bg-[#0f3b2c] hover:bg-[#164e3b] text-[#fbf8ee] shadow-md shadow-emerald-950/10 transition-colors cursor-pointer disabled:opacity-50"
                 >
                   {isSubmittingPackage
                     ? 'جاري الحفظ...'

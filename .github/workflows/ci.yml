@@ -1,0 +1,191 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # =========================================================================
+  # 1. QUALITY & TYPE SAFETY (Fast Feedback)
+  # =========================================================================
+  typecheck-and-lint:
+    name: 🔍 TypeScript & Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: ⚙️ Setup Node.js (v20)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: 📦 Install Root Dependencies
+        run: npm ci
+
+      - name: 📦 Install Frontend Dependencies
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: 🛡️ Type Check Frontend (TypeScript)
+        working-directory: ./frontend
+        run: npx tsc --noEmit
+
+  # =========================================================================
+  # 2. UNIT & VALIDATION TESTS
+  # =========================================================================
+  unit-and-validation-tests:
+    name: 🧪 Unit & Validation Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: ⚙️ Setup Node.js (v20)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: 📦 Install Root Dependencies
+        run: npm ci
+
+      - name: 🧬 Generate Prisma Client
+        run: npx prisma generate
+
+      - name: 🧪 Run Crypto & Financial Unit Tests
+        run: npm run test:unit
+
+      - name: 🛡️ Run Data & Business Rule Validation Tests
+        run: npm run test:validation
+
+  # =========================================================================
+  # 3. END-TO-END INTEGRATION TESTS (With Ephemeral PostgreSQL Service)
+  # =========================================================================
+  integration-tests:
+    name: 🔄 E2E Integration Suite
+    runs-on: ubuntu-latest
+    needs: [unit-and-validation-tests]
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgrespassword
+          POSTGRES_DB: aurea_test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: "postgresql://postgres:postgrespassword@localhost:5432/aurea_test_db?schema=public"
+      PORT: 5000
+      JWT_SECRET: "ci-test-jwt-secret-key-2026"
+      NODE_ENV: test
+
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: ⚙️ Setup Node.js (v20)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: 📦 Install Root Dependencies
+        run: npm ci
+
+      - name: 🧬 Generate Prisma Client
+        run: npx prisma generate
+
+      - name: 🗄️ Push Prisma Schema to PostgreSQL
+        run: npx prisma db push --skip-generate
+
+      - name: 🌱 Seed Initial Database Fixtures
+        run: npm run db:seed
+
+      - name: 🚀 Start Backend API Server in Background
+        run: |
+          node server.js &
+          echo "Waiting for backend server to become healthy on port 5000..."
+          for i in {1..30}; do
+            if curl -s http://localhost:5000/api/health | grep -q "ok"; then
+              echo "Backend is live and responding!"
+              break
+            fi
+            sleep 1
+          done
+
+      - name: 🧪 Execute Full Integration Test Flow
+        run: npm run test:integration
+
+  # =========================================================================
+  # 4. FRONTEND PRODUCTION BUILD
+  # =========================================================================
+  build-frontend:
+    name: 🏗️ Production Build (Vite)
+    runs-on: ubuntu-latest
+    needs: [typecheck-and-lint]
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: ⚙️ Setup Node.js (v20)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: 📦 Install Root & Frontend Dependencies
+        run: |
+          npm ci
+          cd frontend && npm ci
+
+      - name: 🧬 Generate Prisma Client
+        run: npx prisma generate
+
+      - name: 🏗️ Build Frontend Production Assets
+        run: npm run build
+
+      - name: 📤 Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist
+          retention-days: 7
+
+  # =========================================================================
+  # 5. SECURITY & DEPENDENCY AUDIT
+  # =========================================================================
+  security-audit:
+    name: 🔒 Security Audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: ⚙️ Setup Node.js (v20)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: 🛡️ Audit Backend Dependencies
+        run: npm audit --audit-level=high || true
+
+      - name: 🛡️ Audit Frontend Dependencies
+        working-directory: ./frontend
+        run: npm audit --audit-level=high || true

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   X, 
   Receipt, 
@@ -13,9 +13,13 @@ import {
   Lock,
   CreditCard,
   Banknote,
-  Wallet
+  Wallet,
+  MessageSquare
 } from 'lucide-react';
 import { Appointment, GeneratedInvoice } from '../types';
+import { printReceipt } from '../utils/printReceipt';
+import { generateInvoiceImageBase64 } from '../utils/generateInvoicePdf';
+import { useToast } from '../context/ToastContext';
 
 interface ReceiptModalProps {
   isOpen: boolean;
@@ -32,8 +36,99 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
 }) => {
   if (!isOpen || !appointment) return null;
 
+  const { success, error } = useToast();
+  const [isSendingWhatsApp, setIsSendingWhatsApp] = useState(false);
+
   const handlePrint = () => {
-    window.print();
+    printReceipt({
+      invoiceNumber: invoice?.invoiceNumber || appointment.invoice?.invoiceNumber || `AUR-${appointment.id.slice(0, 8).toUpperCase()}`,
+      clientName: invoice?.clientName || appointment.clientName,
+      clientPhone: invoice?.clientPhone || appointment.clientPhone,
+      serviceName: invoice?.serviceName || appointment.serviceName,
+      categoryName: appointment.categoryName,
+      packageName: appointment.packageName,
+      staffName: appointment.staffName,
+      appointmentDate: appointment.appointmentDate,
+      time: appointment.time,
+      totalAmount,
+      discountApplied,
+      discountType,
+      discountValue,
+      finalPrice: netAmount,
+      paymentMethod: invoice?.paymentMethod || appointment.invoice?.paymentMethod || 'نقداً (كاش)',
+    });
+  };
+
+  const handleSendWhatsApp = async () => {
+    const phone = invoice?.clientPhone || appointment.clientPhone;
+    if (!phone) {
+      error('لا يوجد رقم هاتف مسجل لهذا العميل لإرسال الفاتورة عبر واتساب', 'رقم الهاتف مفقود');
+      return;
+    }
+
+    setIsSendingWhatsApp(true);
+    try {
+      const invNum = invoice?.invoiceNumber || appointment.invoice?.invoiceNumber || `AUR-${appointment.id.slice(0, 8).toUpperCase()}`;
+      const imageBase64 = await generateInvoiceImageBase64({
+        invoiceNumber: invNum,
+        clientName: invoice?.clientName || appointment.clientName,
+        clientPhone: phone,
+        serviceName: invoice?.serviceName || appointment.serviceName,
+        categoryName: appointment.categoryName,
+        packageName: appointment.packageName,
+        staffName: appointment.staffName,
+        appointmentDate: appointment.appointmentDate,
+        time: appointment.time,
+        totalAmount,
+        discountApplied,
+        discountType,
+        discountValue,
+        finalPrice: netAmount,
+        paymentMethod: invoice?.paymentMethod || appointment.invoice?.paymentMethod || 'نقداً (كاش)',
+      });
+
+      if (!imageBase64 || imageBase64.length < 50) {
+        error('تعذر التقاط صورة الفاتورة بشكل صحيح', 'خطأ في إنشاء الصورة');
+        return;
+      }
+
+      console.log("Sending invoice image from ReceiptModal: length =", imageBase64.length);
+
+      const res = await fetch('/api/whatsapp/send-invoice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone,
+          clientName: invoice?.clientName || appointment.clientName,
+          invoiceNumber: invNum,
+          image: imageBase64,
+          imageBase64: imageBase64,
+          pdf: imageBase64,
+          pdfBase64: imageBase64,
+          filename: `فاتورة_أوريا_${invNum}.jpg`,
+          message: `مرحباً ${invoice?.clientName || appointment.clientName || 'عميلنا العزيز'} ✨\nمرفق فاتورة زيارتك لعيادة وسبا أوريا (Aurea Clinic & Spa).\nنتمنى لك دوام الصحة والعافية والراحة دائماً 🤍\nرقم الفاتورة: ${invNum}\nيسعدنا دائماً تواصلك معنا!`,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        success(
+          `تم إرسال الفاتورة بنجاح إلى ${invoice?.clientName || appointment.clientName || phone} عبر واتساب ✨`,
+          'تم إرسال الفاتورة'
+        );
+      } else {
+        const isNotReady = data.reason === 'client_not_ready' || data.error === 'client_not_ready';
+        const msg = isNotReady
+          ? 'بوت الواتساب قيد التشغيل والتهيئة حالياً، يرجى الانتظار لحظات والمحاولة مجدداً (WhatsApp bot is still starting, please wait a moment)'
+          : data.message || data.error || 'تعذر إرسال صورة الفاتورة عبر واتساب، يرجى التأكد من تشغيل البوت.';
+        error(msg, isNotReady ? 'البوت قيد التشغيل' : 'فشل إرسال الفاتورة');
+      }
+    } catch (err: any) {
+      console.error('Error capturing or sending invoice image:', err);
+      error('حدث خطأ أثناء إرسال الفاتورة عبر واتساب', 'خطأ في الإرسال');
+    } finally {
+      setIsSendingWhatsApp(false);
+    }
   };
 
   // Derive display values from invoice or appointment
@@ -44,10 +139,12 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
   const staffName = appointment.staffName || 'غير محدد';
   const categoryName = appointment.categoryName || 'عام';
   
-  const basePrice = invoice?.basePrice ?? appointment.finalPrice ?? 0;
-  const totalAmount = invoice?.totalAmount ?? appointment.finalPrice ?? 0;
-  const discountApplied = invoice?.discountApplied ?? 0;
-  const netAmount = invoice?.netAmount ?? appointment.finalPrice ?? 0;
+  const basePrice = invoice?.basePrice ?? appointment.invoice?.basePrice ?? appointment.basePrice ?? appointment.finalPrice ?? 0;
+  const totalAmount = invoice?.totalAmount ?? appointment.invoice?.totalAmount ?? appointment.finalPrice ?? 0;
+  const discountApplied = invoice?.discountApplied ?? appointment.invoice?.discountApplied ?? 0;
+  const discountType = invoice?.discountType ?? appointment.invoice?.discountType ?? 'amount';
+  const discountValue = invoice?.discountValue ?? appointment.invoice?.discountValue ?? discountApplied;
+  const netAmount = invoice?.netAmount ?? appointment.invoice?.netAmount ?? appointment.finalPrice ?? 0;
   const paymentMethod = invoice?.paymentMethod || 'كاش (نقدي)';
   
   const formattedDate = appointment.appointmentDate || new Date().toISOString().split('T')[0];
@@ -65,34 +162,34 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/50 backdrop-blur-xs print:p-0 print:bg-white print:static"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-stone-950/45 dark:bg-black/60 backdrop-blur-md print:p-0 print:bg-white print:static animate-in fade-in duration-200"
       onClick={onClose}
     >
       <div 
-        className="w-full max-w-xl bg-white rounded-3xl shadow-2xl border border-stone-200 overflow-hidden animate-in fade-in zoom-in-95 duration-200 max-h-[94vh] flex flex-col print:shadow-none print:border-none print:max-w-none print:h-auto"
+        className="w-full max-w-xl bg-gradient-to-b from-white via-[#fcfaf6] to-[#f9f6f0] dark:from-stone-900 dark:via-stone-900 dark:to-stone-950 rounded-3xl shadow-2xl shadow-emerald-950/20 border border-stone-200/90 dark:border-white/10 overflow-hidden flex flex-col max-h-[92vh] animate-in zoom-in-95 duration-200 print:shadow-none print:border-none print:max-w-none print:h-auto"
         onClick={(e) => e.stopPropagation()}
         dir="rtl"
       >
         {/* Modal Top Header (Hidden in Print) */}
-        <div className="px-6 py-4.5 border-b border-stone-100 flex items-center justify-between bg-stone-50/70 shrink-0 print:hidden">
+        <div className="px-6 py-4.5 border-b border-stone-200/70 dark:border-stone-800 flex items-center justify-between bg-white/60 dark:bg-stone-900/60 backdrop-blur-md shrink-0 print:hidden">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-100">
-              <Receipt className="w-5 h-5" />
+            <div className="w-10 h-10 rounded-2xl bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 flex items-center justify-center border border-emerald-500/25 shadow-2xs">
+              <Receipt className="w-5 h-5 text-emerald-700 dark:text-emerald-400" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-base font-bold text-stone-800">فاتورة مسددة معتمدة</h3>
+                <h3 className="text-base font-bold text-stone-900 dark:text-stone-100">فاتورة مسددة معتمدة</h3>
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
                   <CheckCircle2 className="w-3 h-3 text-emerald-600" />
                   مدفوع بالكامل
                 </span>
               </div>
-              <p className="text-xs text-stone-400">عرض رسمي للقراءة والطباعة فقط • لا يمكن تعديل الفاتورة</p>
+              <p className="text-xs text-stone-500 dark:text-stone-400">عرض رسمي للقراءة والطباعة فقط • لا يمكن تعديل الفاتورة</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-xl text-stone-400 hover:text-stone-700 hover:bg-stone-200/50 transition-colors cursor-pointer"
+            className="p-1.5 rounded-xl text-stone-400 hover:text-stone-700 hover:bg-stone-200/50 dark:hover:bg-stone-800 transition-colors cursor-pointer"
             title="إغلاق النافذة"
           >
             <X className="w-5 h-5" />
@@ -100,7 +197,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
         </div>
 
         {/* Modal Scrollable Body */}
-        <div className="p-6 md:p-8 space-y-6 overflow-y-auto flex-1 print:p-0 print:overflow-visible">
+        <div className="p-6 md:p-8 space-y-6 overflow-y-auto flex-1 silk-scrollbar bg-transparent print:p-0 print:overflow-visible">
           
           {/* Status Banner */}
           <div className="flex items-center justify-between p-3.5 rounded-2xl bg-emerald-50/80 border border-emerald-200/70 text-xs print:hidden">
@@ -231,7 +328,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
 
               {discountApplied > 0 && (
                 <div className="flex justify-between text-rose-600 font-semibold">
-                  <span>الخصم الممنوح:</span>
+                  <span>الخصم الممنوح {discountType === 'percentage' ? `(${discountValue}%)` : '(مبلغ ثابت)'}:</span>
                   <span>- {discountApplied} ج.م</span>
                 </div>
               )}
@@ -267,24 +364,44 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
           </div>
         </div>
 
+        {/* Soft Gradient Fade Mask before Footer */}
+        <div className="h-4 -mt-4 bg-gradient-to-t from-white/95 dark:from-stone-900/95 to-transparent pointer-events-none relative z-10 print:hidden" />
+
         {/* Modal Bottom Actions (Hidden in Print) */}
-        <div className="p-4 px-6 border-t border-stone-100 flex items-center justify-between gap-3 bg-stone-50/70 shrink-0 print:hidden">
+        <div className="p-4 px-6 border-t border-stone-200/80 dark:border-stone-800 flex items-center justify-between gap-3 bg-white/95 dark:bg-stone-900/95 backdrop-blur-xl shrink-0 print:hidden z-20">
           <button
             type="button"
             onClick={onClose}
-            className="px-5 py-2.5 rounded-xl border border-stone-200 text-xs font-semibold text-stone-600 hover:bg-stone-100 transition-colors cursor-pointer"
+            className="px-5 py-2.5 rounded-xl border border-stone-200 text-xs font-semibold text-stone-600 dark:text-stone-300 hover:bg-stone-100 transition-colors cursor-pointer"
           >
             إغلاق
           </button>
 
-          <button
-            type="button"
-            onClick={handlePrint}
-            className="px-6 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-2 cursor-pointer"
-          >
-            <Printer className="w-4 h-4" />
-            <span>طباعة الفاتورة (Print)</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={isSendingWhatsApp}
+              onClick={handleSendWhatsApp}
+              className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-md flex items-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              title="إرسال الفاتورة الرسمية PDF للعميل عبر واتساب"
+            >
+              {isSendingWhatsApp ? (
+                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <MessageSquare className="w-4 h-4" />
+              )}
+              <span>إرسال الفاتورة واتساب (PDF)</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handlePrint}
+              className="px-6 py-2.5 rounded-xl bg-[#0f3b2c] hover:bg-[#164e3b] text-[#fbf8ee] text-xs font-bold transition-all shadow-md shadow-emerald-950/15 flex items-center gap-2 cursor-pointer"
+            >
+              <Printer className="w-4 h-4 text-[#d4af37]" />
+              <span>طباعة الفاتورة (Print)</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>

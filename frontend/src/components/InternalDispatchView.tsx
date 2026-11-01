@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { Pagination } from './ui/Pagination';
+import { usePagination } from '../hooks/usePagination';
 import {
   Boxes,
   Plus,
@@ -55,6 +57,7 @@ export const InternalDispatchView: React.FC<InternalDispatchViewProps> = ({
 
   useEffect(() => {
     fetchDispatches();
+    onRefreshInventory();
   }, []);
 
   // Currently selected product
@@ -141,6 +144,20 @@ export const InternalDispatchView: React.FC<InternalDispatchViewProps> = ({
         (d.notes && d.notes.toLowerCase().includes(term))
     );
   }, [dispatches, searchTerm]);
+
+  // Luxury Pagination Controller
+  const {
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+    paginatedData: paginatedDispatches,
+    resetPage,
+  } = usePagination(filteredDispatches, { initialPageSize: 10 });
+
+  useEffect(() => {
+    resetPage();
+  }, [searchTerm]);
 
   return (
     <div className="space-y-6" dir="rtl">
@@ -305,7 +322,7 @@ export const InternalDispatchView: React.FC<InternalDispatchViewProps> = ({
             <button
               type="submit"
               disabled={isSubmitting || !selectedProductId}
-              className="px-6 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-xs transition-all shadow-xs disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 cursor-pointer"
+              className="px-6 py-2.5 rounded-xl bg-[#0f3b2c] hover:bg-[#164e3b] text-[#fbf8ee] font-bold text-xs transition-all shadow-md shadow-emerald-950/15 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 cursor-pointer"
             >
               {isSubmitting ? (
                 <>
@@ -324,10 +341,10 @@ export const InternalDispatchView: React.FC<InternalDispatchViewProps> = ({
       </div>
 
       {/* ── Dispatches History Table ─────────────────────────────────────────── */}
-      <div className="bg-white rounded-2xl border border-stone-200 shadow-xs overflow-hidden">
-        <div className="p-4 border-b border-stone-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <h3 className="text-sm font-bold text-stone-900 flex items-center gap-2">
-            <Receipt className="w-4 h-4 text-emerald-700" />
+      <div className="bg-white/85 dark:bg-stone-900/85 backdrop-blur-xl rounded-3xl border border-stone-200/90 dark:border-white/10 shadow-[0_15px_40px_-12px_rgba(15,59,44,0.06)] overflow-hidden">
+        <div className="p-4 border-b border-stone-100 dark:border-stone-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <h3 className="text-sm font-bold text-stone-900 dark:text-stone-100 flex items-center gap-2">
+            <Receipt className="w-4 h-4 text-[#0f3b2c] dark:text-emerald-400" />
             <span>سجل أذونات الصرف السابقة</span>
           </h3>
 
@@ -338,15 +355,15 @@ export const InternalDispatchView: React.FC<InternalDispatchViewProps> = ({
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="بحث في أذونات الصرف..."
-              className="w-full pl-3 pr-8 py-1.5 text-xs rounded-xl border border-stone-200 bg-stone-50/50 focus:outline-hidden focus:bg-white focus:border-emerald-600"
+              className="w-full pl-3 pr-8 py-2 text-xs rounded-xl border border-stone-200/90 dark:border-stone-700 bg-white/90 dark:bg-stone-800 text-stone-800 dark:text-stone-200 focus:outline-hidden focus:border-[#0f3b2c] shadow-2xs placeholder-stone-400"
             />
           </div>
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full text-right border-collapse text-xs">
-            <thead>
-              <tr className="bg-stone-50 border-b border-stone-200/80 text-stone-600 font-bold">
+            <thead className="sticky top-0 z-10 bg-white/95 dark:bg-stone-900/95 backdrop-blur-md border-b border-stone-200/90 dark:border-stone-800 shadow-2xs text-stone-700 dark:text-stone-300 font-bold uppercase tracking-wider">
+              <tr>
                 <th className="py-3 px-4">التاريخ والوقت</th>
                 <th className="py-3 px-4">اسم المستهلك / الصنف</th>
                 <th className="py-3 px-4">الكمية المنصرفة</th>
@@ -373,7 +390,7 @@ export const InternalDispatchView: React.FC<InternalDispatchViewProps> = ({
                   </td>
                 </tr>
               ) : (
-                filteredDispatches.map((d) => {
+                paginatedDispatches.map((d) => {
                   const dDate = new Date(d.date);
                   const formattedDate = !isNaN(dDate.getTime())
                     ? dDate.toLocaleDateString('ar-EG', {
@@ -421,6 +438,16 @@ export const InternalDispatchView: React.FC<InternalDispatchViewProps> = ({
             </tbody>
           </table>
         </div>
+
+        <Pagination
+          currentPage={currentPage}
+          totalItems={filteredDispatches.length}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+          pageSizeOptions={[10, 20, 50, 100]}
+          itemLabel="إذن صرف"
+        />
       </div>
     </div>
   );

@@ -1,4 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Pagination } from './ui/Pagination';
+import { usePagination } from '../hooks/usePagination';
 import { 
   TrendingUp, 
   Plus, 
@@ -41,6 +43,11 @@ export const RevenuesView: React.FC<RevenuesViewProps> = ({
   onAddRevenue,
   onDeleteRevenue,
 }) => {
+  // Auto-refresh revenues on screen mount
+  useEffect(() => {
+    onRefreshRevenues();
+  }, []);
+
   const safeRevenues = useMemo(() => (Array.isArray(revenues) ? revenues : []), [revenues]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('الكل');
@@ -176,6 +183,20 @@ export const RevenuesView: React.FC<RevenuesViewProps> = ({
     });
   }, [safeRevenues, searchTerm, selectedCategoryFilter, sourceFilter, startDateFilter, endDateFilter]);
 
+  // Luxury Pagination Controller
+  const {
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+    paginatedData: paginatedRevenues,
+    resetPage,
+  } = usePagination(filteredRevenues, { initialPageSize: 10 });
+
+  useEffect(() => {
+    resetPage();
+  }, [searchTerm, selectedCategoryFilter, sourceFilter, startDateFilter, endDateFilter]);
+
   // KPI Calculations
   const totalRevenuesAmount = useMemo(() => {
     return filteredRevenues.reduce((sum, r) => sum + (Number(r?.amount) || 0), 0);
@@ -215,14 +236,14 @@ export const RevenuesView: React.FC<RevenuesViewProps> = ({
         <div className="flex items-center gap-2">
           <button
             onClick={onRefreshRevenues}
-            className="p-2.5 rounded-xl border border-stone-200 bg-white hover:bg-stone-50 text-stone-600 transition-colors shadow-2xs cursor-pointer"
+            className="p-2.5 rounded-xl border border-stone-200/90 dark:border-stone-700 bg-white dark:bg-stone-800 hover:bg-stone-50 dark:hover:bg-stone-700 text-stone-600 dark:text-stone-300 transition-colors shadow-2xs cursor-pointer"
             title="تحديث البيانات"
           >
             <RotateCcw className="w-4 h-4" />
           </button>
           <button
             onClick={handleOpenAddModal}
-            className="px-4 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-xs shadow-xs transition-all flex items-center gap-2 cursor-pointer"
+            className="px-5 py-2.5 rounded-xl bg-[#0f3b2c] hover:bg-[#164e3b] text-[#fbf8ee] font-bold text-sm shadow-md shadow-emerald-950/15 transition-all flex items-center gap-2 cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             <span>إضافة إيراد يدوي</span>
@@ -233,53 +254,53 @@ export const RevenuesView: React.FC<RevenuesViewProps> = ({
       {/* Summary KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {/* Total Revenues */}
-        <div className="bg-gradient-to-br from-emerald-50 to-teal-50/50 p-5 rounded-2xl border border-emerald-100/80 shadow-xs relative overflow-hidden">
+        <div className="bg-gradient-to-br from-white via-[#fcfaf6] to-[#f8f5ee] dark:from-stone-900 dark:via-stone-900/90 dark:to-stone-950 p-5 rounded-2xl border border-stone-200/90 dark:border-white/10 shadow-xs relative overflow-hidden">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-emerald-800 uppercase tracking-wider">إجمالي الإيرادات المسجلة</span>
-            <div className="w-9 h-9 rounded-xl bg-emerald-600/10 flex items-center justify-center text-emerald-700">
-              <TrendingUp className="w-5 h-5" />
+            <span className="text-xs font-bold text-stone-500 dark:text-stone-400 uppercase tracking-wider">إجمالي الإيرادات المسجلة</span>
+            <div className="w-12 h-12 rounded-2xl bg-[#0f3b2c]/10 text-[#0f3b2c] dark:bg-emerald-500/10 dark:text-emerald-400 border border-[#0f3b2c]/15 flex items-center justify-center">
+              <TrendingUp className="w-6 h-6" />
             </div>
           </div>
           <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl font-black text-emerald-950 font-mono">
+            <span className="text-2xl font-black text-[#0f3b2c] dark:text-emerald-400 font-mono">
               {totalRevenuesAmount.toLocaleString()}
             </span>
-            <span className="text-xs font-bold text-emerald-700">ج.م</span>
+            <span className="text-xs font-bold text-stone-500">ج.م</span>
           </div>
-          <p className="text-[11px] text-emerald-700/80 mt-1 font-medium">
+          <p className="text-[11px] text-stone-400 mt-1 font-medium">
             شامل القيود التلقائية للحجوزات والإيرادات اليدوية
           </p>
         </div>
 
         {/* Automated Appointments Revenue */}
-        <div className="bg-white p-5 rounded-2xl border border-purple-100 shadow-xs relative overflow-hidden bg-purple-50/20">
+        <div className="bg-gradient-to-br from-white via-[#fcfaf6] to-[#f8f5ee] dark:from-stone-900 dark:via-stone-900/90 dark:to-stone-950 p-5 rounded-2xl border border-stone-200/90 dark:border-white/10 shadow-xs relative overflow-hidden">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-purple-900 uppercase tracking-wider">إيرادات الحجوزات والباقات</span>
-            <div className="w-9 h-9 rounded-xl bg-purple-600/10 flex items-center justify-center text-purple-700">
-              <Sparkles className="w-5 h-5" />
+            <span className="text-xs font-bold text-stone-500 dark:text-stone-400 uppercase tracking-wider">إيرادات الحجوزات والباقات</span>
+            <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 flex items-center justify-center">
+              <Sparkles className="w-6 h-6" />
             </div>
           </div>
           <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl font-black text-purple-950 font-mono">
+            <span className="text-2xl font-black text-amber-700 dark:text-amber-400 font-mono">
               {autoRevenuesAmount.toLocaleString()}
             </span>
-            <span className="text-xs font-bold text-purple-700">ج.م</span>
+            <span className="text-xs font-bold text-stone-500">ج.م</span>
           </div>
-          <p className="text-[11px] text-purple-600/80 mt-1 font-medium">
+          <p className="text-[11px] text-stone-400 mt-1 font-medium">
             {filteredRevenues.filter(r => r.source === 'APPOINTMENT').length} حجز مؤكد ومفوتر تلقائياً
           </p>
         </div>
 
         {/* Manual Revenues */}
-        <div className="bg-white p-5 rounded-2xl border border-stone-200/80 shadow-xs relative overflow-hidden">
+        <div className="bg-gradient-to-br from-white via-[#fcfaf6] to-[#f8f5ee] dark:from-stone-900 dark:via-stone-900/90 dark:to-stone-950 p-5 rounded-2xl border border-stone-200/90 dark:border-white/10 shadow-xs relative overflow-hidden">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-stone-700 uppercase tracking-wider">الإيرادات اليدوية والمبيعات</span>
-            <div className="w-9 h-9 rounded-xl bg-stone-100 flex items-center justify-center text-stone-600">
-              <Wallet className="w-5 h-5" />
+            <span className="text-xs font-bold text-stone-500 dark:text-stone-400 uppercase tracking-wider">الإيرادات اليدوية والمبيعات</span>
+            <div className="w-12 h-12 rounded-2xl bg-[#0f3b2c]/10 text-[#0f3b2c] dark:bg-emerald-500/10 dark:text-emerald-400 border border-[#0f3b2c]/15 flex items-center justify-center">
+              <Wallet className="w-6 h-6" />
             </div>
           </div>
           <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl font-black text-stone-800 font-mono">
+            <span className="text-2xl font-black text-stone-900 dark:text-white font-mono">
               {manualRevenuesAmount.toLocaleString()}
             </span>
             <span className="text-xs font-bold text-stone-500">ج.م</span>
@@ -291,7 +312,7 @@ export const RevenuesView: React.FC<RevenuesViewProps> = ({
       </div>
 
       {/* Filters & Search */}
-      <div className="bg-white p-4 rounded-2xl border border-stone-200/80 shadow-xs space-y-3">
+      <div className="bg-white/80 dark:bg-stone-900/80 backdrop-blur-xl p-4 rounded-2xl border border-stone-200/90 dark:border-white/10 shadow-xs space-y-3">
         <div className="flex flex-col md:flex-row items-center justify-between gap-3">
           {/* Search Input */}
           <div className="relative w-full md:w-80">
@@ -301,18 +322,18 @@ export const RevenuesView: React.FC<RevenuesViewProps> = ({
               placeholder="بحث في البيان أو اسم العميل أو التصنيف..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pr-10 pl-4 py-2 text-xs rounded-xl bg-stone-50/70 border border-stone-200 focus:bg-white focus:outline-hidden focus:border-emerald-600 text-stone-800 placeholder-stone-400 transition-colors"
+              className="w-full pr-10 pl-4 py-2.5 text-xs rounded-xl bg-white/90 dark:bg-stone-800 border border-stone-200/90 dark:border-stone-700 focus:outline-hidden focus:border-[#0f3b2c] text-stone-800 dark:text-stone-200 placeholder-stone-400 transition-colors shadow-2xs"
             />
           </div>
 
           {/* Source Filter (All / Auto / Manual) */}
-          <div className="flex items-center bg-stone-100 p-1 rounded-xl text-xs font-semibold">
+          <div className="flex items-center bg-stone-100 dark:bg-stone-800 p-1 rounded-xl text-xs font-semibold">
             <button
               onClick={() => setSourceFilter('الكل')}
               className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
                 sourceFilter === 'الكل'
-                  ? 'bg-white text-stone-800 shadow-2xs font-bold'
-                  : 'text-stone-500 hover:text-stone-800'
+                  ? 'bg-white dark:bg-stone-700 text-stone-800 dark:text-stone-100 shadow-2xs font-bold'
+                  : 'text-stone-500 hover:text-stone-800 dark:hover:text-stone-200'
               }`}
             >
               الكل
@@ -321,22 +342,22 @@ export const RevenuesView: React.FC<RevenuesViewProps> = ({
               onClick={() => setSourceFilter('APPOINTMENT')}
               className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1 ${
                 sourceFilter === 'APPOINTMENT'
-                  ? 'bg-white text-purple-800 shadow-2xs font-bold'
-                  : 'text-stone-500 hover:text-stone-800'
+                  ? 'bg-white dark:bg-stone-700 text-amber-700 dark:text-amber-400 shadow-2xs font-bold'
+                  : 'text-stone-500 hover:text-stone-800 dark:hover:text-stone-200'
               }`}
             >
-              <Sparkles className="w-3.5 h-3.5 text-purple-600" />
+              <Sparkles className="w-3.5 h-3.5 text-amber-600" />
               <span>حجوزات وباقات</span>
             </button>
             <button
               onClick={() => setSourceFilter('MANUAL')}
               className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1 ${
                 sourceFilter === 'MANUAL'
-                  ? 'bg-white text-emerald-800 shadow-2xs font-bold'
-                  : 'text-stone-500 hover:text-stone-800'
+                  ? 'bg-white dark:bg-stone-700 text-[#0f3b2c] dark:text-emerald-400 shadow-2xs font-bold'
+                  : 'text-stone-500 hover:text-stone-800 dark:hover:text-stone-200'
               }`}
             >
-              <Wallet className="w-3.5 h-3.5 text-emerald-600" />
+              <Wallet className="w-3.5 h-3.5 text-[#0f3b2c] dark:text-emerald-500" />
               <span>إيراد يدوي</span>
             </button>
           </div>
@@ -349,7 +370,7 @@ export const RevenuesView: React.FC<RevenuesViewProps> = ({
                 type="date"
                 value={startDateFilter}
                 onChange={(e) => setStartDateFilter(e.target.value)}
-                className="px-2.5 py-1.5 rounded-xl border border-stone-200 bg-stone-50 text-stone-700 text-xs focus:bg-white focus:outline-hidden"
+                className="px-2.5 py-1.5 rounded-xl border border-stone-200/90 dark:border-stone-700 bg-white/90 dark:bg-stone-800 text-stone-700 dark:text-stone-200 text-xs focus:outline-hidden shadow-2xs"
               />
             </div>
             <div className="flex items-center gap-1.5 text-xs text-stone-500">
@@ -358,7 +379,7 @@ export const RevenuesView: React.FC<RevenuesViewProps> = ({
                 type="date"
                 value={endDateFilter}
                 onChange={(e) => setEndDateFilter(e.target.value)}
-                className="px-2.5 py-1.5 rounded-xl border border-stone-200 bg-stone-50 text-stone-700 text-xs focus:bg-white focus:outline-hidden"
+                className="px-2.5 py-1.5 rounded-xl border border-stone-200/90 dark:border-stone-700 bg-white/90 dark:bg-stone-800 text-stone-700 dark:text-stone-200 text-xs focus:outline-hidden shadow-2xs"
               />
             </div>
             {(startDateFilter || endDateFilter) && (
@@ -376,13 +397,13 @@ export const RevenuesView: React.FC<RevenuesViewProps> = ({
         </div>
 
         {/* Category Filter Pills */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pt-2 border-t border-stone-100 scrollbar-none">
+        <div className="flex items-center gap-1.5 overflow-x-auto pt-2 border-t border-stone-100 dark:border-stone-800 scrollbar-none">
           <button
             onClick={() => setSelectedCategoryFilter('الكل')}
             className={`px-3 py-1 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
               selectedCategoryFilter === 'الكل'
-                ? 'bg-stone-800 text-white'
-                : 'bg-stone-100 text-stone-600 hover:bg-stone-200/70'
+                ? 'bg-[#0f3b2c] text-[#fbf8ee]'
+                : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 hover:bg-stone-200/70'
             }`}
           >
             جميع التصنيفات ({safeRevenues.length})
@@ -396,8 +417,8 @@ export const RevenuesView: React.FC<RevenuesViewProps> = ({
                 onClick={() => setSelectedCategoryFilter(cat)}
                 className={`px-3 py-1 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
                   selectedCategoryFilter === cat
-                    ? 'bg-emerald-700 text-white'
-                    : 'bg-stone-100 text-stone-600 hover:bg-stone-200/70'
+                    ? 'bg-[#0f3b2c] text-[#fbf8ee]'
+                    : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 hover:bg-stone-200/70'
                 }`}
               >
                 {cat} ({count})
@@ -408,17 +429,17 @@ export const RevenuesView: React.FC<RevenuesViewProps> = ({
       </div>
 
       {/* Revenues Data Table */}
-      <div className="bg-white rounded-2xl border border-stone-200/80 shadow-xs overflow-hidden">
-        <div className="overflow-x-auto">
+      <div className="bg-white/90 dark:bg-stone-900/90 backdrop-blur-xl rounded-3xl border border-stone-200/90 dark:border-white/10 shadow-[0_15px_40px_-12px_rgba(15,59,44,0.06)] overflow-hidden">
+        <div className="overflow-x-auto silk-scrollbar">
           <table className="w-full text-right border-collapse">
-            <thead>
-              <tr className="bg-stone-50/70 border-b border-stone-200/80 text-xs font-semibold text-stone-600">
+            <thead className="sticky top-0 z-20 bg-white/95 dark:bg-stone-900/95 backdrop-blur-xl border-b border-stone-200/90 dark:border-stone-800 shadow-xs">
+              <tr className="text-xs font-bold text-stone-700 dark:text-stone-300 uppercase tracking-wider">
                 <th className="py-3.5 px-6">التاريخ (Date)</th>
                 <th className="py-3.5 px-6">التصنيف (Category)</th>
                 <th className="py-3.5 px-6">البيان والتفاصيل (Description)</th>
                 <th className="py-3.5 px-6">المبلغ (Amount)</th>
                 <th className="py-3.5 px-6">المصدر (Source)</th>
-                <th className="py-3.5 px-6 text-left">الإجراءات</th>
+                <th className="sticky left-0 z-30 py-3.5 px-6 text-left bg-white/95 dark:bg-stone-900/95 backdrop-blur-xl sticky-action-shadow">الإجراءات</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-100 text-sm">
@@ -433,10 +454,10 @@ export const RevenuesView: React.FC<RevenuesViewProps> = ({
                   </td>
                 </tr>
               ) : (
-                filteredRevenues.map((item) => {
+                paginatedRevenues.map((item) => {
                   const isAuto = item.source === 'APPOINTMENT';
                   return (
-                    <tr key={item.id} className="hover:bg-stone-50/50 transition-colors">
+                    <tr key={item.id} className="hover:bg-emerald-500/[0.02] dark:hover:bg-white/[0.02] transition-all luxury-row-hover group">
                       {/* Date */}
                       <td className="py-4 px-6">
                         <span className="font-mono text-xs text-stone-700 flex items-center gap-1.5" dir="ltr">
@@ -461,9 +482,21 @@ export const RevenuesView: React.FC<RevenuesViewProps> = ({
                       </td>
 
                       {/* Amount */}
-                      <td className="py-4 px-6 font-bold text-emerald-700">
-                        <span className="text-base font-extrabold">{(Number(item?.amount) || 0).toLocaleString()}</span>{' '}
-                        <span className="text-xs font-normal text-stone-500">ج.م</span>
+                      <td className="py-4 px-6 font-bold">
+                        {Number(item?.amount || 0) === 0 ? (
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-extrabold text-stone-400 line-through">0</span>
+                            <span className="text-xs font-normal text-stone-400">ج.م</span>
+                            <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                              مسترد
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="text-emerald-700">
+                            <span className="text-base font-extrabold">{(Number(item?.amount) || 0).toLocaleString()}</span>{' '}
+                            <span className="text-xs font-normal text-stone-500">ج.م</span>
+                          </div>
+                        )}
                       </td>
 
                       {/* Source Badge */}
@@ -481,8 +514,8 @@ export const RevenuesView: React.FC<RevenuesViewProps> = ({
                         )}
                       </td>
 
-                      {/* Actions */}
-                      <td className="py-4 px-6 text-left">
+                      {/* Actions - Sticky Left */}
+                      <td className="sticky left-0 z-10 py-3.5 px-6 text-left whitespace-nowrap bg-white/95 dark:bg-stone-900/95 backdrop-blur-md sticky-action-shadow group-hover:bg-[#fcfaf6] dark:group-hover:bg-stone-800 transition-colors">
                         <div className="flex items-center justify-end gap-1.5">
                           {isAuto ? (
                             <span 
@@ -509,29 +542,41 @@ export const RevenuesView: React.FC<RevenuesViewProps> = ({
             </tbody>
           </table>
         </div>
+
+        {/* Luxury Pagination */}
+        <Pagination
+          currentPage={currentPage}
+          totalItems={filteredRevenues.length}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+          pageSizeOptions={[10, 20, 50, 100]}
+          itemLabel="إيراد"
+        />
       </div>
 
       {/* Manual Add Revenue Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/40 backdrop-blur-xs">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-[#0f3b2c]/25 backdrop-blur-md">
           <div 
-            className="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-stone-200 overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+            className="w-full max-w-md bg-gradient-to-b from-[#fdfbf7] via-[#fcfaf5] to-[#f7f4ed] dark:from-stone-900 dark:via-stone-900 dark:to-stone-950 rounded-3xl shadow-[0_25px_70px_-15px_rgba(15,59,44,0.22)] border border-stone-200/90 dark:border-white/10 overflow-hidden animate-in fade-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
+            dir="rtl"
           >
             {/* Modal Header */}
-            <div className="px-6 py-4.5 border-b border-stone-100 flex items-center justify-between bg-stone-50/70">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center">
-                  <Plus className="w-4 h-4" />
+            <div className="px-6 py-4.5 border-b border-stone-200/70 dark:border-stone-800 flex items-center justify-between bg-white/60 dark:bg-stone-900/60 backdrop-blur-md">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 flex items-center justify-center border border-emerald-500/25 shadow-2xs">
+                  <Plus className="w-5 h-5 text-emerald-700 dark:text-emerald-400" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-stone-800">إضافة إيراد يدوي جديد</h3>
-                  <p className="text-[11px] text-stone-400">تسجيل مدخول مالي غير مرتبط بحجز موعد</p>
+                  <h3 className="text-base font-bold text-stone-900 dark:text-stone-100">إضافة إيراد يدوي جديد</h3>
+                  <p className="text-[11px] text-stone-500 dark:text-stone-400">تسجيل مدخول مالي غير مرتبط بحجز موعد</p>
                 </div>
               </div>
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="p-1.5 rounded-xl text-stone-400 hover:text-stone-700 hover:bg-stone-200/50 transition-colors cursor-pointer"
+                className="p-1.5 rounded-xl text-stone-400 hover:text-stone-700 hover:bg-stone-200/50 dark:hover:bg-stone-800 transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -626,7 +671,7 @@ export const RevenuesView: React.FC<RevenuesViewProps> = ({
               </div>
 
               {/* Actions */}
-              <div className="pt-3 flex items-center justify-end gap-2 border-t border-stone-100">
+              <div className="pt-3 flex items-center justify-end gap-2 border-t border-stone-200/70 dark:border-stone-800">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
@@ -638,7 +683,7 @@ export const RevenuesView: React.FC<RevenuesViewProps> = ({
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-5 py-2 text-xs font-semibold rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white shadow-xs transition-all cursor-pointer disabled:opacity-50"
+                  className="px-5 py-2 text-xs font-bold rounded-xl bg-[#0f3b2c] hover:bg-[#164e3b] text-[#fbf8ee] shadow-sm transition-all cursor-pointer disabled:opacity-50"
                 >
                   {isSubmitting ? 'جاري الحفظ...' : 'حفظ الإيراد'}
                 </button>
