@@ -4618,14 +4618,16 @@ async function ensureSeedAppointments() {
 app.get('/api/whatsapp/status', async (req, res) => {
   const client = getWhatsAppClient();
   let state = null;
+  let info = null;
   if (client) {
     try {
       state = await client.getState();
+      info = client.info ? { pushname: client.info.pushname, wid: client.info.wid } : null;
     } catch (e) {
       state = e.message;
     }
   }
-  res.json({ isReady: isWhatsAppReady(), state, hasClient: !!client });
+  res.json({ isReady: isWhatsAppReady(), state, info, hasClient: !!client });
 });
 
 app.post('/api/whatsapp/init', (req, res) => {

@@ -96,6 +96,21 @@ function initWhatsApp() {
 
   client.on('loading_screen', (percent, message) => {
     console.log(`⏳ WhatsApp Loading: ${percent}% - ${message}`);
+    if (percent >= 99) {
+      setTimeout(async () => {
+        if (!isReady && client) {
+          try {
+            const state = await client.getState();
+            if (state === 'CONNECTED') {
+              isReady = true;
+              console.log('=============================================================');
+              console.log('✅ WhatsApp Bot is Ready! (Connected & 99% loaded)');
+              console.log('=============================================================');
+            }
+          } catch (e) {}
+        }
+      }, 3000);
+    }
   });
 
   client.on('change_state', (state) => {
