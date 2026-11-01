@@ -19,6 +19,7 @@ import { RevenuesView } from './components/RevenuesView';
 import { FinancialAnalyticsView } from './components/FinancialAnalyticsView';
 import { ReportsDashboard } from './components/ReportsDashboard';
 import { UsersManagementView } from './components/UsersManagementView';
+import { SettingsView } from './components/SettingsView';
 import { HRView } from './components/HRView';
 import { LoginView } from './components/LoginView';
 import { CommandPalette } from './components/CommandPalette';
@@ -756,6 +757,10 @@ function App() {
 
         {currentTab === 'users' && hasAccessToTab('users') && (
           <UsersManagementView />
+        )}
+
+        {currentTab === 'settings' && hasAccessToTab('settings') && (
+          <SettingsView />
         )}
       </Layout>
 

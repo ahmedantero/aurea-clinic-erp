@@ -70,12 +70,10 @@ function verifyJwt(token) {
 }
 
 app.use(cors({
-  origin: [
-    'http://localhost:5173',
-    'http://127.0.0.1:5173',
-    'http://localhost:3000',
-    'http://127.0.0.1:3000',
-  ],
+  origin: (origin, callback) => {
+    // Allow all origins (Localhost, Vercel cloud deployments, Cloudflare Tunnels, Localtunnel, mobile apps)
+    return callback(null, true);
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Cache-Control', 'Pragma', 'x-user-id', 'x-auth-user', 'x-username'],

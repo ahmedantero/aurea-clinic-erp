@@ -56,6 +56,7 @@ export const RECEPTIONIST_ALLOWED_TABS: TabType[] = [
   'clients',
   'services',
   'dispatches',
+  'settings',
 ];
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {

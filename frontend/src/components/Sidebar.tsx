@@ -19,7 +19,8 @@ import {
   UserCog,
   Briefcase,
   ChevronRight,
-  ChevronLeft
+  ChevronLeft,
+  Settings
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
@@ -37,7 +38,8 @@ export type TabType =
   | 'staff-management' 
   | 'staff-reports'
   | 'analytics'
-  | 'users';
+  | 'users'
+  | 'settings';
 
 interface SidebarProps {
   currentTab: TabType;
@@ -152,6 +154,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
       label: 'إدارة المستخدمين',
       icon: UserCog,
       adminOnly: true,
+    },
+    {
+      id: 'settings' as TabType,
+      label: 'إعدادات النظام والواتساب',
+      icon: Settings,
     },
   ];
 

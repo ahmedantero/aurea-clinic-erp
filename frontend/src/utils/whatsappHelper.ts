@@ -1,5 +1,6 @@
 import { generateInvoiceImageBase64 } from './generateInvoicePdf';
 import { PrintReceiptData } from './printReceipt';
+import { getWhatsAppConfig, getEffectiveWhatsAppMode, getWhatsAppApiBaseUrl } from './whatsappSettings';
 
 /**
  * Extracts clean international digits from phone numbers.
@@ -152,8 +153,9 @@ export interface WhatsAppDispatchResult {
 
 /**
  * Dual-Mode WhatsApp Reminder Dispatcher:
- * 1. Attempts automatic silent dispatch via local bot / cloud API.
- * 2. If bot is offline or on serverless Vercel, immediately opens WhatsApp chat with pre-filled reminder text.
+ * 1. Checks configured mode (Local, Bridge to Clinic PC, or Direct).
+ * 2. Attempts automatic silent dispatch via local bot or clinic bridge tunnel.
+ * 3. Gracefully falls back to direct WhatsApp link if the local bot / bridge is offline.
  */
 export async function dispatchWhatsAppReminder(params: {
   phone: string;
@@ -164,31 +166,39 @@ export async function dispatchWhatsAppReminder(params: {
   time?: string;
 }): Promise<WhatsAppDispatchResult> {
   const reminderText = buildReminderMessage(params);
+  const config = getWhatsAppConfig();
+  const effectiveMode = getEffectiveWhatsAppMode(config);
+  const baseUrl = getWhatsAppApiBaseUrl(config);
 
-  try {
-    const res = await fetch('/api/whatsapp/send-reminder', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        phone: params.phone,
-        clientName: params.clientName,
-        staffName: params.staffName,
-        serviceName: params.serviceName,
-        appointmentDate: params.appointmentDate,
-        time: params.time,
-      }),
-    });
+  if (effectiveMode !== 'direct') {
+    try {
+      const res = await fetch(`${baseUrl}/api/whatsapp/send-reminder`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone: params.phone,
+          clientName: params.clientName,
+          staffName: params.staffName,
+          serviceName: params.serviceName,
+          appointmentDate: params.appointmentDate,
+          time: params.time,
+        }),
+      });
 
-    const data = await res.json().catch(() => ({}));
-    if (res.ok && data.success && !data.fallback) {
-      return {
-        success: true,
-        mode: 'bot',
-        message: 'تم إرسال تذكير الموعد تلقائياً عبر بوت واتساب 🚀✨',
-      };
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success && !data.fallback) {
+        return {
+          success: true,
+          mode: 'bot',
+          message:
+            effectiveMode === 'bridge'
+              ? 'تم إرسال تذكير الموعد تلقائياً عبر جسر العيادة السحابي 🚀✨'
+              : 'تم إرسال تذكير الموعد تلقائياً عبر بوت واتساب 🚀✨',
+        };
+      }
+    } catch (err) {
+      console.warn('WhatsApp reminder dispatch failed, using direct fallback:', err);
     }
-  } catch (err) {
-    console.warn('Backend WhatsApp reminder call failed or unavailable, using direct fallback:', err);
   }
 
   // Graceful Fallback: Open WhatsApp directly with the pre-filled reminder text
@@ -203,10 +213,9 @@ export async function dispatchWhatsAppReminder(params: {
 /**
  * Dual-Mode WhatsApp Invoice Dispatcher:
  * 1. Generates the high-res luxury invoice JPEG.
- * 2. Attempts automatic silent dispatch via local bot / cloud API.
- * 3. If bot is offline or on serverless Vercel:
- *    - Downloads invoice image (فاتورة_أوريا_AUR-XXXX.jpg).
- *    - Opens WhatsApp chat with pre-filled invoice summary text ready to attach & send.
+ * 2. Checks configured mode (Local, Bridge to Clinic PC, or Direct).
+ * 3. Attempts automatic silent dispatch via local bot or clinic bridge tunnel.
+ * 4. If offline or unreachable, downloads invoice image & opens direct WhatsApp chat.
  */
 export async function dispatchWhatsAppInvoice(
   receiptData: PrintReceiptData
@@ -233,10 +242,14 @@ export async function dispatchWhatsAppInvoice(
     console.error('Invoice image generation error:', imgErr);
   }
 
-  // 2. Try sending via backend (local bot or cloud gateway)
-  if (imageBase64 && imageBase64.length > 50) {
+  const config = getWhatsAppConfig();
+  const effectiveMode = getEffectiveWhatsAppMode(config);
+  const baseUrl = getWhatsAppApiBaseUrl(config);
+
+  // 2. Try sending via backend (local bot or clinic bridge)
+  if (effectiveMode !== 'direct' && imageBase64 && imageBase64.length > 50) {
     try {
-      const res = await fetch('/api/whatsapp/send-invoice', {
+      const res = await fetch(`${baseUrl}/api/whatsapp/send-invoice`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -256,11 +269,14 @@ export async function dispatchWhatsAppInvoice(
         return {
           success: true,
           mode: 'bot',
-          message: `تم إرسال صورة الفاتورة تلقائياً عبر بوت واتساب إلى ${receiptData.clientName || phone} 🚀✨`,
+          message:
+            effectiveMode === 'bridge'
+              ? `تم إرسال صورة الفاتورة تلقائياً عبر جسر العيادة السحابي إلى ${receiptData.clientName || phone} 🚀✨`
+              : `تم إرسال صورة الفاتورة تلقائياً عبر بوت واتساب إلى ${receiptData.clientName || phone} 🚀✨`,
         };
       }
     } catch (err) {
-      console.warn('Backend WhatsApp invoice call failed or unavailable, using direct fallback:', err);
+      console.warn('Backend / Bridge WhatsApp invoice call failed, using direct fallback:', err);
     }
   }
 
