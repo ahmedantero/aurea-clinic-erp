@@ -4651,15 +4651,16 @@ app.post('/api/whatsapp/send-reminder', async (req, res) => {
     const aTime = time || '11:00 صباحاً';
 
     const reminderMessage =
-      `مرحباً ${cName} ✨\n\n` +
-      `نود تذكيرك بموعدك في أوريا كلينك & سبا (Aurea Clinic & Spa):\n` +
-      `🗓️ التاريخ: ${dDate}\n` +
-      `⏰ الوقت: ${aTime}\n` +
-      `💆 الخدمة: ${srvName}\n` +
-      `👩‍⚕️ الأخصائي: ${sName}\n\n` +
-      `ننتظرك بكل حب وراحة لتجربة استثنائية 🤍\n` +
-      `📍 موقع العيادة على الخرائط: ${mapUrl}\n\n` +
-      `* لتأكيد أو تعديل موعدك، يسعدنا تواصلك بالرد على هذه الرسالة.`;
+      `مرحباً بك: *${cName}* ✦\n\n` +
+      `نود تذكيرك بموعدك القادم في أوريا كلينيك & سبا:\n` +
+      `*Aurea Clinic & Luxury Medical Spa*\n\n` +
+      `• *التاريخ:* ${dDate}\n` +
+      `• *التوقيت:* ${aTime}\n` +
+      `• *الخدمة:* ${srvName}\n` +
+      `• *الأخصائي:* ${sName}\n\n` +
+      `يسعدنا دائماً استقبالك لتجربة استثنائية ✦\n` +
+      `• *موقع العيادة:* ${mapUrl}\n\n` +
+      `لتأكيد أو تعديل موعدك، يسعدنا تواصلك بالرد على هذه الرسالة ✓`;
 
     const cleanDigits = String(phone).replace(/\D/g, '');
     const sanitizedPhone = cleanDigits.startsWith('01') ? `20${cleanDigits.substring(1)}` : cleanDigits;

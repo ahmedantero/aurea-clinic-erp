@@ -60,6 +60,8 @@ export function downloadBase64Image(base64Data: string, filename: string): void 
 
 /**
  * Formats a luxury Arabic appointment reminder message.
+ * Uses safe Unicode symbols (✦, •, ✓) and WhatsApp bold formatting (*text*)
+ * to guarantee 100% crisp rendering across all browsers, WhatsApp Web, Desktop, and Mobile without any encoding issues.
  */
 export function buildReminderMessage(data: {
   clientName?: string;
@@ -77,20 +79,23 @@ export function buildReminderMessage(data: {
   const mapUrl = data.clinicMapUrl || 'https://maps.google.com/?q=Aurea+Clinic';
 
   return (
-    `مرحباً ${cName} ✨\n\n` +
-    `نود تذكيرك بموعدك في أوريا كلينك & سبا (Aurea Clinic & Spa):\n` +
-    `🗓️ التاريخ: ${dDate}\n` +
-    `⏰ الوقت: ${aTime}\n` +
-    `💆 الخدمة: ${srvName}\n` +
-    `👩‍⚕️ الأخصائي: ${sName}\n\n` +
-    `ننتظرك بكل حب وراحة لتجربة استثنائية 🤍\n` +
-    `📍 موقع العيادة على الخرائط: ${mapUrl}\n\n` +
-    `* لتأكيد أو تعديل موعدك، يسعدنا تواصلك بالرد على هذه الرسالة.`
+    `مرحباً بك: *${cName}* ✦\n\n` +
+    `نود تذكيرك بموعدك القادم في أوريا كلينيك & سبا:\n` +
+    `*Aurea Clinic & Luxury Medical Spa*\n\n` +
+    `• *التاريخ:* ${dDate}\n` +
+    `• *التوقيت:* ${aTime}\n` +
+    `• *الخدمة:* ${srvName}\n` +
+    `• *الأخصائي:* ${sName}\n\n` +
+    `يسعدنا دائماً استقبالك لتجربة استثنائية ✦\n` +
+    `• *موقع العيادة:* ${mapUrl}\n\n` +
+    `لتأكيد أو تعديل موعدك، يسعدنا تواصلك بالرد على هذه الرسالة ✓`
   );
 }
 
 /**
  * Formats a luxury Arabic invoice summary message.
+ * Uses safe Unicode symbols (✦, •, ✓) and WhatsApp bold formatting (*text*)
+ * to guarantee 100% crisp rendering across all browsers, WhatsApp Web, Desktop, and Mobile without any encoding issues.
  */
 export function buildInvoiceMessage(data: {
   clientName?: string;
@@ -110,25 +115,28 @@ export function buildInvoiceMessage(data: {
   const aTime = data.time?.trim() || '';
 
   return (
-    `مرحباً ${cName} ✨\n\n` +
-    `مرفق فاتورة زيارتك لعيادة وسبا أوريا (Aurea Clinic & Spa) 🤍\n\n` +
-    `📄 رقم الفاتورة: ${invNum}\n` +
-    (dDate ? `🗓️ تاريخ الزيارة: ${dDate}${aTime ? ` (${aTime})` : ''}\n` : '') +
-    `💆 الخدمات: ${srvName}\n` +
-    (price ? `💰 صافي المبلغ: ${price} (${payMethod})\n\n` : '\n') +
-    `شكراً لاختياركم أوريا، نتمنى لكم دوام الصحة والعافية والراحة دائماً ✨`
+    `مرحباً بك: *${cName}* ✦\n\n` +
+    `مرفق تفاصيل فاتورة زيارتك لعيادة وسبا أوريا:\n` +
+    `*Aurea Clinic & Luxury Medical Spa*\n\n` +
+    `• *رقم الفاتورة:* ${invNum}\n` +
+    (dDate ? `• *تاريخ الزيارة:* ${dDate}${aTime ? ` (${aTime})` : ''}\n` : '') +
+    `• *الخدمات المحجوزة:* ${srvName}\n` +
+    (price ? `• *صافي المبلغ:* ${price} (${payMethod})\n\n` : '\n') +
+    `نتمنى لك دوام الصحة والراحة دائماً ✦\n` +
+    `شكراً لاختيارك أوريا كلينيك ✓`
   );
 }
 
 /**
- * Universal WhatsApp launcher: opens chat with pre-filled message (works on PC WhatsApp Web, Desktop, & Mobile apps).
+ * Universal WhatsApp launcher: opens chat with pre-filled message.
+ * Uses api.whatsapp.com for robust cross-platform UTF-8 encoding support.
  */
 export function openWhatsAppChat(phone: string, text: string): void {
   const cleanPhone = cleanWhatsAppPhone(phone);
   const encodedText = encodeURIComponent(text);
   const url = cleanPhone
-    ? `https://wa.me/${cleanPhone}?text=${encodedText}`
-    : `https://wa.me/?text=${encodedText}`;
+    ? `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodedText}`
+    : `https://api.whatsapp.com/send?text=${encodedText}`;
 
   const win = window.open(url, '_blank');
   if (!win) {
