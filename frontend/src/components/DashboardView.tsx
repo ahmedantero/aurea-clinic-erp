@@ -17,6 +17,7 @@ import { Appointment } from '../types';
 import { useToast } from '../context/ToastContext';
 import { AnimatedNumber } from './ui/AnimatedNumber';
 import { StatCard } from './ui/StatCard';
+import { dispatchWhatsAppReminder } from '../utils/whatsappHelper';
 
 interface DashboardViewProps {
   appointments: Appointment[];
@@ -60,34 +61,18 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
     setSendingWhatsAppId(apt.id);
     try {
-      const res = await fetch('/api/whatsapp/send-reminder', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          phone,
-          clientName: apt.clientName,
-          staffName: apt.staffName,
-          serviceName: apt.serviceName || apt.packageName,
-          appointmentDate: apt.appointmentDate,
-          time: apt.time,
-        }),
+      const res = await dispatchWhatsAppReminder({
+        phone,
+        clientName: apt.clientName,
+        staffName: apt.staffName,
+        serviceName: apt.serviceName || apt.packageName,
+        appointmentDate: apt.appointmentDate,
+        time: apt.time,
       });
 
-      const data = await res.json();
-      if (res.ok && data.success) {
-        success(
-          `تم إرسال تذكير الموعد بنجاح عبر واتساب إلى ${apt.clientName || phone} ✨`,
-          'تم الإرسال بنجاح'
-        );
-      } else {
-        const isNotReady = data.reason === 'client_not_ready' || data.error === 'client_not_ready';
-        const msg = isNotReady
-          ? 'بوت الواتساب قيد التشغيل والتهيئة حالياً، يرجى الانتظار لحظات والمحاولة مجدداً (WhatsApp bot is still starting, please wait a moment)'
-          : data.message || data.error || 'تعذر إرسال رسالة الواتساب، يرجى التأكد من تشغيل البوت.';
-        error(msg, isNotReady ? 'البوت قيد التشغيل' : 'فشل إرسال التذكير');
-      }
+      success(res.message, res.mode === 'bot' ? 'تم الإرسال الآلي' : 'واتساب جاهز');
     } catch (err: any) {
-      error('حدث خطأ في الاتصال بالخادم أثناء إرسال تذكير الواتساب', 'خطأ في الاتصال');
+      error('حدث خطأ أثناء محاولة إرسال تذكير الواتساب', 'خطأ في الاتصال');
     } finally {
       setSendingWhatsAppId(null);
     }

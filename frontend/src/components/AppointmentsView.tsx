@@ -33,6 +33,7 @@ import { Appointment, AppointmentStatus } from '../types';
 import { useToast } from '../context/ToastContext';
 import { generateInvoiceImageBase64 } from '../utils/generateInvoicePdf';
 import { printReceipt } from '../utils/printReceipt';
+import { dispatchWhatsAppReminder, dispatchWhatsAppInvoice } from '../utils/whatsappHelper';
 import { EmptyState } from './ui/EmptyState';
 import { Badge } from './ui/Badge';
 import { Button } from './ui/Button';
@@ -118,7 +119,7 @@ export const AppointmentsView: React.FC<AppointmentsViewProps> = ({
     });
   };
 
-  // ── Send WhatsApp Reminder Action with Toasts ────────────────────────────
+  // ── Send WhatsApp Reminder Action with Dual-Mode (Bot or Direct Link) ──
   const handleSendWhatsAppReminder = async (apt: Appointment, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
 
@@ -130,40 +131,24 @@ export const AppointmentsView: React.FC<AppointmentsViewProps> = ({
 
     setSendingWhatsAppId(apt.id);
     try {
-      const res = await fetch('/api/whatsapp/send-reminder', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          phone,
-          clientName: apt.clientName,
-          staffName: apt.staffName,
-          serviceName: apt.serviceName || apt.packageName,
-          appointmentDate: apt.appointmentDate,
-          time: apt.time,
-        }),
+      const res = await dispatchWhatsAppReminder({
+        phone,
+        clientName: apt.clientName,
+        staffName: apt.staffName,
+        serviceName: apt.serviceName || apt.packageName,
+        appointmentDate: apt.appointmentDate,
+        time: apt.time,
       });
 
-      const data = await res.json();
-      if (res.ok && data.success) {
-        success(
-          `تم إرسال تذكير الموعد بنجاح عبر واتساب إلى ${apt.clientName || phone} ✨`,
-          'تم الإرسال بنجاح'
-        );
-      } else {
-        const isNotReady = data.reason === 'client_not_ready' || data.error === 'client_not_ready';
-        const msg = isNotReady
-          ? 'بوت الواتساب قيد التشغيل والتهيئة حالياً، يرجى الانتظار لحظات والمحاولة مجدداً (WhatsApp bot is still starting, please wait a moment)'
-          : data.message || data.error || 'تعذر إرسال رسالة الواتساب، يرجى التأكد من تشغيل البوت.';
-        error(msg, isNotReady ? 'البوت قيد التشغيل' : 'فشل إرسال التذكير');
-      }
+      success(res.message, res.mode === 'bot' ? 'تم الإرسال الآلي' : 'واتساب جاهز');
     } catch (err: any) {
-      error('حدث خطأ في الاتصال بالخادم أثناء إرسال تذكير الواتساب', 'خطأ في الاتصال');
+      error('حدث خطأ أثناء محاولة إرسال تذكير الواتساب', 'خطأ في الاتصال');
     } finally {
       setSendingWhatsAppId(null);
     }
   };
 
-  // ── Send WhatsApp Invoice PDF Action with Toasts ───────────────────────────
+  // ── Send WhatsApp Invoice Action with Dual-Mode (Bot or Direct Link + Image Download) ──
   const [sendingInvoiceId, setSendingInvoiceId] = useState<string | null>(null);
 
   const handleSendWhatsAppInvoice = async (apt: Appointment, e?: React.MouseEvent) => {
@@ -178,7 +163,7 @@ export const AppointmentsView: React.FC<AppointmentsViewProps> = ({
     setSendingInvoiceId(apt.id);
     try {
       const invoiceNum = apt.invoice?.invoiceNumber || `AUR-${apt.id.slice(0, 8).toUpperCase()}`;
-      const imageBase64 = await generateInvoiceImageBase64({
+      const res = await dispatchWhatsAppInvoice({
         invoiceNumber: invoiceNum,
         clientName: apt.clientName,
         clientPhone: apt.clientPhone,
@@ -192,45 +177,10 @@ export const AppointmentsView: React.FC<AppointmentsViewProps> = ({
         paymentMethod: apt.invoice?.paymentMethod || 'نقداً (كاش)',
       });
 
-      if (!imageBase64 || imageBase64.length < 50) {
-        error('تعذر إنشاء صورة الفاتورة بشكل صحيح', 'خطأ في إنشاء الصورة');
-        return;
-      }
-
-      console.log("Sending invoice image to backend: length =", imageBase64.length);
-
-      const res = await fetch('/api/whatsapp/send-invoice', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          phone,
-          clientName: apt.clientName,
-          invoiceNumber: invoiceNum,
-          image: imageBase64,
-          imageBase64: imageBase64,
-          pdf: imageBase64,
-          pdfBase64: imageBase64,
-          filename: `فاتورة_أوريا_${invoiceNum}.jpg`,
-          message: `مرحباً ${apt.clientName || 'عميلنا العزيز'} ✨\nمرفق فاتورة زيارتك لعيادة وسبا أوريا (Aurea Clinic & Spa).\nنتمنى لك دوام الصحة والعافية والراحة دائماً 🤍\nرقم الفاتورة: ${invoiceNum}\nيسعدنا دائماً تواصلك معنا!`,
-        }),
-      });
-
-      const data = await res.json();
-      if (res.ok && data.success) {
-        success(
-          `تم إرسال الفاتورة بنجاح إلى ${apt.clientName || phone} عبر واتساب ✨`,
-          'تم إرسال الفاتورة'
-        );
-      } else {
-        const isNotReady = data.reason === 'client_not_ready' || data.error === 'client_not_ready';
-        const msg = isNotReady
-          ? 'بوت الواتساب قيد التشغيل والتهيئة حالياً، يرجى الانتظار لحظات والمحاولة مجدداً (WhatsApp bot is still starting, please wait a moment)'
-          : data.message || data.error || 'تعذر إرسال صورة الفاتورة عبر واتساب، تأكد من تشغيل البوت.';
-        error(msg, isNotReady ? 'البوت قيد التشغيل' : 'فشل إرسال الفاتورة');
-      }
+      success(res.message, res.mode === 'bot' ? 'تم إرسال الفاتورة' : 'الفاتورة جاهزة للواتساب');
     } catch (err: any) {
       console.error('Error generating or sending invoice image:', err);
-      error('حدث خطأ أثناء إنشاء الفاتورة أو إرسالها عبر واتساب', 'خطأ في الإرسال');
+      error('حدث خطأ أثناء تجهيز الفاتورة أو إرسالها عبر واتساب', 'خطأ في الإرسال');
     } finally {
       setSendingInvoiceId(null);
     }

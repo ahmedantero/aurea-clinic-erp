@@ -19,6 +19,7 @@ import {
 import { Appointment, GeneratedInvoice } from '../types';
 import { printReceipt } from '../utils/printReceipt';
 import { generateInvoiceImageBase64 } from '../utils/generateInvoicePdf';
+import { dispatchWhatsAppInvoice } from '../utils/whatsappHelper';
 import { useToast } from '../context/ToastContext';
 
 interface ReceiptModalProps {
@@ -69,7 +70,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
     setIsSendingWhatsApp(true);
     try {
       const invNum = invoice?.invoiceNumber || appointment.invoice?.invoiceNumber || `AUR-${appointment.id.slice(0, 8).toUpperCase()}`;
-      const imageBase64 = await generateInvoiceImageBase64({
+      const res = await dispatchWhatsAppInvoice({
         invoiceNumber: invNum,
         clientName: invoice?.clientName || appointment.clientName,
         clientPhone: phone,
@@ -87,44 +88,9 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
         paymentMethod: invoice?.paymentMethod || appointment.invoice?.paymentMethod || 'نقداً (كاش)',
       });
 
-      if (!imageBase64 || imageBase64.length < 50) {
-        error('تعذر التقاط صورة الفاتورة بشكل صحيح', 'خطأ في إنشاء الصورة');
-        return;
-      }
-
-      console.log("Sending invoice image from ReceiptModal: length =", imageBase64.length);
-
-      const res = await fetch('/api/whatsapp/send-invoice', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          phone,
-          clientName: invoice?.clientName || appointment.clientName,
-          invoiceNumber: invNum,
-          image: imageBase64,
-          imageBase64: imageBase64,
-          pdf: imageBase64,
-          pdfBase64: imageBase64,
-          filename: `فاتورة_أوريا_${invNum}.jpg`,
-          message: `مرحباً ${invoice?.clientName || appointment.clientName || 'عميلنا العزيز'} ✨\nمرفق فاتورة زيارتك لعيادة وسبا أوريا (Aurea Clinic & Spa).\nنتمنى لك دوام الصحة والعافية والراحة دائماً 🤍\nرقم الفاتورة: ${invNum}\nيسعدنا دائماً تواصلك معنا!`,
-        }),
-      });
-
-      const data = await res.json();
-      if (res.ok && data.success) {
-        success(
-          `تم إرسال الفاتورة بنجاح إلى ${invoice?.clientName || appointment.clientName || phone} عبر واتساب ✨`,
-          'تم إرسال الفاتورة'
-        );
-      } else {
-        const isNotReady = data.reason === 'client_not_ready' || data.error === 'client_not_ready';
-        const msg = isNotReady
-          ? 'بوت الواتساب قيد التشغيل والتهيئة حالياً، يرجى الانتظار لحظات والمحاولة مجدداً (WhatsApp bot is still starting, please wait a moment)'
-          : data.message || data.error || 'تعذر إرسال صورة الفاتورة عبر واتساب، يرجى التأكد من تشغيل البوت.';
-        error(msg, isNotReady ? 'البوت قيد التشغيل' : 'فشل إرسال الفاتورة');
-      }
+      success(res.message, res.mode === 'bot' ? 'تم إرسال الفاتورة' : 'الفاتورة جاهزة للواتساب');
     } catch (err: any) {
-      console.error('Error capturing or sending invoice image:', err);
+      console.error('Error in handleSendWhatsApp:', err);
       error('حدث خطأ أثناء إرسال الفاتورة عبر واتساب', 'خطأ في الإرسال');
     } finally {
       setIsSendingWhatsApp(false);

@@ -60,23 +60,34 @@ function initWhatsApp() {
 
   console.log('🔄 Initializing WhatsApp Web Client with LocalAuth...');
 
+  const chromePath =
+    process.env.CHROME_BIN ||
+    (fs.existsSync('C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe')
+      ? 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
+      : undefined);
+
+  const puppeteerConfig = {
+    headless: true,
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-accelerated-2d-canvas',
+      '--no-first-run',
+      '--no-zygote',
+      '--disable-gpu',
+    ],
+  };
+
+  if (chromePath) {
+    puppeteerConfig.executablePath = chromePath;
+  }
+
   client = new Client({
     authStrategy: new LocalAuth({
       dataPath: './.wwebjs_auth',
     }),
-    puppeteer: {
-      headless: true,
-      executablePath: 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-accelerated-2d-canvas',
-        '--no-first-run',
-        '--no-zygote',
-        '--disable-gpu',
-      ],
-    },
+    puppeteer: puppeteerConfig,
   });
 
   // Display QR Code in Terminal on first run / when authentication needed

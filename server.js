@@ -4661,11 +4661,49 @@ app.post('/api/whatsapp/send-reminder', async (req, res) => {
       `📍 موقع العيادة على الخرائط: ${mapUrl}\n\n` +
       `* لتأكيد أو تعديل موعدك، يسعدنا تواصلك بالرد على هذه الرسالة.`;
 
-    const result = await sendWhatsAppMessage(phone, reminderMessage);
-    if (!result.success) {
-      return res.status(400).json(result);
+    const cleanDigits = String(phone).replace(/\D/g, '');
+    const sanitizedPhone = cleanDigits.startsWith('01') ? `20${cleanDigits.substring(1)}` : cleanDigits;
+
+    // 1. Cloud Gateway Dispatch (e.g. UltraMsg) if configured via environment variables
+    if (process.env.ULTRAMSG_INSTANCE_ID && process.env.ULTRAMSG_TOKEN) {
+      try {
+        const uRes = await fetch(`https://api.ultramsg.com/${process.env.ULTRAMSG_INSTANCE_ID}/messages/chat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            token: process.env.ULTRAMSG_TOKEN,
+            to: sanitizedPhone,
+            body: reminderMessage,
+          }),
+        });
+        const uData = await uRes.json();
+        if (uData && (uData.sent === 'true' || uData.sent === true || uData.id)) {
+          return res.json({ success: true, message: 'تم إرسال تذكير الواتساب بنجاح عبر البوابة السحابية', details: uData });
+        }
+      } catch (cloudErr) {
+        console.warn('Cloud WhatsApp gateway reminder error:', cloudErr.message);
+      }
     }
-    res.json({ success: true, message: 'تم إرسال تذكير الواتساب بنجاح', details: result });
+
+    // 2. Local WhatsApp Bot Dispatch (whatsapp-web.js) if ready on localhost
+    if (isWhatsAppReady()) {
+      const result = await sendWhatsAppMessage(phone, reminderMessage);
+      if (result.success) {
+        return res.json({ success: true, message: 'تم إرسال تذكير الواتساب بنجاح عبر البوت', details: result });
+      }
+    }
+
+    // 3. Graceful Fallback for Vercel/Serverless or Offline Bot: Direct WhatsApp Link
+    res.json({
+      success: false,
+      fallback: true,
+      reason: 'client_not_ready',
+      mode: 'direct_link',
+      phone: sanitizedPhone,
+      messageText: reminderMessage,
+      waUrl: `https://wa.me/${sanitizedPhone}?text=${encodeURIComponent(reminderMessage)}`,
+      message: 'بوت الواتساب المحلي غير مفعل (وضع السيرفرليس/أونلاين). تم تجهيز رابط الإرسال المباشر للعميل.',
+    });
   } catch (err) {
     console.error('Error sending WhatsApp appointment reminder:', err);
     res.status(500).json({ error: err.message });
@@ -4674,66 +4712,82 @@ app.post('/api/whatsapp/send-reminder', async (req, res) => {
 
 const handleSendInvoiceImage = async (req, res) => {
   try {
-    const client = getWhatsAppClient();
-    if (!client || !isWhatsAppReady()) {
-      return res.status(400).json({ 
-        success: false, 
-        reason: 'client_not_ready',
-        error: 'WhatsApp bot is still starting, please wait a moment' 
-      });
-    }
-
     const { phone, message, caption, filename } = req.body;
     const targetPhone = phone || req.body.clientPhone;
     let base64Data = req.body.imageBase64 || req.body.image || req.body.pdfBase64 || req.body.pdf || (req.file ? req.file.buffer.toString('base64') : null);
+
+    const cleanDigits = String(targetPhone || '').replace(/\D/g, '');
+    const sanitizedPhone = cleanDigits.startsWith('01') ? `20${cleanDigits.substring(1)}` : cleanDigits;
+    const captionText = message || caption || req.body.caption || "مرفق فاتورة زيارتك لعيادة أوريا 🤍";
 
     if (!base64Data) {
       return res.status(400).json({ success: false, error: "No image data provided from frontend" });
     }
 
-    // STRICTLY strip the URI prefix (e.g., data:image/jpeg;base64,)
     if (base64Data.includes('base64,')) {
       base64Data = base64Data.split('base64,')[1];
     }
     base64Data = base64Data.trim().replace(/\s+/g, '');
 
-    if (!targetPhone) {
-      return res.status(400).json({ success: false, error: "No phone number provided" });
-    }
-
-    // Format phone number
-    const cleanDigits = String(targetPhone).replace(/\D/g, '');
-    const sanitizedPhone = cleanDigits.startsWith('01') ? `20${cleanDigits.substring(1)}` : cleanDigits;
-    const numberDetails = await client.getNumberId(sanitizedPhone);
-
-    if (!numberDetails) {
-      return res.status(400).json({ success: false, error: "Invalid WhatsApp number" });
-    }
-
-    // 1. Save to a temporary .jpg file to completely bypass memory limits
-    const tempFilePath = path.join(__dirname, `temp_invoice_${Date.now()}.jpg`);
-    fs.writeFileSync(tempFilePath, Buffer.from(base64Data, 'base64'));
-
-    try {
-      // 2. Load media from the actual file
-      const media = MessageMedia.fromFilePath(tempFilePath);
-      if (filename) {
-        media.filename = filename.endsWith('.jpg') || filename.endsWith('.jpeg') ? filename : `${filename}.jpg`;
-      }
-
-      // 3. Send as a normal image (NO sendMediaAsDocument)
-      await client.sendMessage(numberDetails._serialized, media, {
-        caption: message || caption || req.body.caption || "مرفق فاتورة زيارتك لعيادة أوريا 🤍"
-      });
-
-      res.json({ success: true, message: "Invoice image sent successfully" });
-    } finally {
-      // 4. ALWAYS clean up the temp file
-      if (fs.existsSync(tempFilePath)) {
-        fs.unlinkSync(tempFilePath);
+    // 1. Cloud Gateway Dispatch (e.g. UltraMsg) if configured
+    if (process.env.ULTRAMSG_INSTANCE_ID && process.env.ULTRAMSG_TOKEN && base64Data && sanitizedPhone) {
+      try {
+        const uRes = await fetch(`https://api.ultramsg.com/${process.env.ULTRAMSG_INSTANCE_ID}/messages/image`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            token: process.env.ULTRAMSG_TOKEN,
+            to: sanitizedPhone,
+            image: `data:image/jpeg;base64,${base64Data}`,
+            caption: captionText,
+          }),
+        });
+        const uData = await uRes.json();
+        if (uData && (uData.sent === 'true' || uData.sent === true || uData.id)) {
+          return res.json({ success: true, message: "تم إرسال صورة الفاتورة بنجاح عبر البوابة السحابية", details: uData });
+        }
+      } catch (cloudErr) {
+        console.warn('Cloud WhatsApp gateway invoice error:', cloudErr.message);
       }
     }
 
+    // 2. Local WhatsApp Bot Dispatch (whatsapp-web.js) if ready
+    const client = getWhatsAppClient();
+    if (client && isWhatsAppReady() && sanitizedPhone) {
+      const numberDetails = await client.getNumberId(sanitizedPhone);
+      if (numberDetails) {
+        const tempFilePath = path.join(__dirname, `temp_invoice_${Date.now()}.jpg`);
+        fs.writeFileSync(tempFilePath, Buffer.from(base64Data, 'base64'));
+
+        try {
+          const media = MessageMedia.fromFilePath(tempFilePath);
+          if (filename) {
+            media.filename = filename.endsWith('.jpg') || filename.endsWith('.jpeg') ? filename : `${filename}.jpg`;
+          }
+
+          await client.sendMessage(numberDetails._serialized, media, {
+            caption: captionText,
+          });
+
+          return res.json({ success: true, message: "Invoice image sent successfully via local bot" });
+        } finally {
+          if (fs.existsSync(tempFilePath)) {
+            fs.unlinkSync(tempFilePath);
+          }
+        }
+      }
+    }
+
+    // 3. Graceful Fallback for Vercel/Serverless or Offline Bot: Direct WhatsApp Link
+    res.json({
+      success: false,
+      fallback: true,
+      reason: 'client_not_ready',
+      mode: 'direct_link',
+      phone: sanitizedPhone,
+      waUrl: `https://wa.me/${sanitizedPhone}?text=${encodeURIComponent(captionText)}`,
+      message: 'بوت الواتساب المحلي غير مفعل (وضع السيرفرليس/أونلاين). تم تجهيز الفاتورة للإرسال المباشر.',
+    });
   } catch (error) {
     console.error("Invoice image send error:", error);
     res.status(500).json({ success: false, error: error.message });
