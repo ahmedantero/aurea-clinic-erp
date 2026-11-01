@@ -88,6 +88,18 @@ function initWhatsApp() {
       dataPath: './.wwebjs_auth',
     }),
     puppeteer: puppeteerConfig,
+    webVersionCache: {
+      type: 'remote',
+      remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/{version}.html',
+    },
+  });
+
+  client.on('loading_screen', (percent, message) => {
+    console.log(`⏳ WhatsApp Loading: ${percent}% - ${message}`);
+  });
+
+  client.on('change_state', (state) => {
+    console.log(`🔄 WhatsApp State Changed: ${state}`);
   });
 
   // Display QR Code in Terminal on first run / when authentication needed

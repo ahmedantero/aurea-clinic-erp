@@ -54,6 +54,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { printReceipt } from '../utils/printReceipt';
 import { generateInvoiceImageBase64 } from '../utils/generateInvoicePdf';
+import { dispatchWhatsAppInvoice } from '../utils/whatsappHelper';
 
 interface NewAppointmentModalProps {
   isOpen: boolean;
@@ -797,7 +798,7 @@ export const NewAppointmentModal: React.FC<NewAppointmentModalProps> = ({
       const staffObj = selectedStaff;
 
       if (rawTargetPhone) {
-        generateInvoiceImageBase64({
+        dispatchWhatsAppInvoice({
           invoiceNumber: invNum,
           clientName: clientObj?.name || 'عميل مسجل',
           clientPhone: rawTargetPhone,
@@ -822,27 +823,7 @@ export const NewAppointmentModal: React.FC<NewAppointmentModalProps> = ({
               price: c.isBilledToClient ? getProductPricing(p).sellingPrice * c.quantity : 0,
             };
           }),
-        }).then((imageBase64) => {
-          if (imageBase64 && imageBase64.length > 50) {
-            // Slight delay (1.2s) so the appointment confirmation text arrives first
-            setTimeout(() => {
-              fetch('/api/whatsapp/send-invoice', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  phone: rawTargetPhone,
-                  clientName: clientObj?.name || 'عميلنا العزيز',
-                  invoiceNumber: invNum,
-                  imageBase64,
-                  image: imageBase64,
-                  pdfBase64: imageBase64,
-                  filename: `فاتورة_أوريا_${invNum}.jpg`,
-                  message: `مرحباً ${clientObj?.name || 'عميلنا العزيز'} ✨\nمرفق فاتورة حجزك الرسمية في أوريا كلينك & سبا (Aurea Clinic & Spa).\nرقم الفاتورة: ${invNum}\nنتمنى لك دوام الصحة والعافية والراحة دائماً 🤍`,
-                }),
-              }).catch((e) => console.error('Auto send invoice image error:', e));
-            }, 1200);
-          }
-        }).catch((err) => console.error('Invoice generation error:', err));
+        }).catch((err) => console.error('Auto send invoice error:', err));
       }
 
       // Isolated Print: Target ONLY the appointment invoice via invisible iframe!

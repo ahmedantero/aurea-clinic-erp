@@ -4615,8 +4615,17 @@ async function ensureSeedAppointments() {
 // ==========================================
 // WHATSAPP AUTOMATION & CRON ENDPOINTS
 // ==========================================
-app.get('/api/whatsapp/status', (req, res) => {
-  res.json({ isReady: isWhatsAppReady() });
+app.get('/api/whatsapp/status', async (req, res) => {
+  const client = getWhatsAppClient();
+  let state = null;
+  if (client) {
+    try {
+      state = await client.getState();
+    } catch (e) {
+      state = e.message;
+    }
+  }
+  res.json({ isReady: isWhatsAppReady(), state, hasClient: !!client });
 });
 
 app.post('/api/whatsapp/init', (req, res) => {
