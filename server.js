@@ -70,13 +70,20 @@ function verifyJwt(token) {
 }
 
 app.use(cors({
-  origin: (origin, callback) => {
-    // Allow all origins (Localhost, Vercel cloud deployments, Cloudflare Tunnels, Localtunnel, mobile apps)
-    return callback(null, true);
-  },
+  origin: true,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Cache-Control', 'Pragma', 'x-user-id', 'x-auth-user', 'x-username'],
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'Cache-Control',
+    'Pragma',
+    'x-user-id',
+    'x-auth-user',
+    'x-username',
+    'ngrok-skip-browser-warning',
+    'bypass-tunnel-reminder',
+  ],
 }));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
