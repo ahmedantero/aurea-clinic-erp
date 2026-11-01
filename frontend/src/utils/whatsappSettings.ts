@@ -6,7 +6,7 @@ export interface WhatsAppConfig {
   autoDetect: boolean;
 }
 
-const SETTINGS_KEY = 'aurea_whatsapp_config_v1';
+const SETTINGS_KEY = 'aurea_whatsapp_config_v2';
 
 export const DEFAULT_WHATSAPP_CONFIG: WhatsAppConfig = {
   mode: 'auto',
