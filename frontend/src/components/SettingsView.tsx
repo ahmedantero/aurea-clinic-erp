@@ -254,7 +254,7 @@ export const SettingsView: React.FC = () => {
             </div>
           </div>
 
-          {/* Card 2: Render 24/7 Cloud Bot (Option 3 - Recommended) */}
+          {/* Card 2: Ngrok Permanent Fixed Domain */}
           <div 
             onClick={() => setConfig({ ...config, mode: 'bridge' })}
             className={`p-5 rounded-2xl border-2 transition-all cursor-pointer flex flex-col justify-between ${
@@ -269,12 +269,12 @@ export const SettingsView: React.FC = () => {
                   <Server className="w-5 h-5" />
                 </span>
                 <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900">
-                  الحل 3 (سحابي 24/7 دائم)
+                  رابط ثابت للأبد (بدون كارت 100%)
                 </span>
               </div>
-              <h3 className="font-extrabold text-base text-[#0f3b2c] mb-1.5">بوت Render السحابي الدائم (Cloud 24/7)</h3>
+              <h3 className="font-extrabold text-base text-[#0f3b2c] mb-1.5">جسر Ngrok الثابت (Fixed Domain)</h3>
               <p className="text-xs text-stone-600 leading-relaxed">
-                سيرفر واتساب سحابي مستقل يعمل 24 ساعة على Render مجاناً. لا يعتمد على فتح جهاز العيادة إطلاقاً ورابطه ثابت للأبد.
+                يربط جهاز العيادة بموقعك على Vercel برابط ثابت دائم مدى الحياة مجاناً دون الحاجة لأي كارت بنكي نهائياً.
               </p>
             </div>
             <div className="mt-4 pt-3 border-t border-stone-100 flex items-center gap-2 text-xs font-bold text-[#0f3b2c]">
@@ -320,7 +320,7 @@ export const SettingsView: React.FC = () => {
         {/* ── Bridge URL Configuration Input ─────────────────────────── */}
         <div className="pt-4 border-t border-stone-100 space-y-3">
           <label className="block text-sm font-extrabold text-[#0f3b2c]">
-            رابط خادم الواتساب السحابي (Render 24/7 Cloud Bot URL):
+            رابط جسر Ngrok الثابت الخاص بعيادتك (Ngrok Static Domain URL):
           </label>
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
             <div className="relative flex-1">
@@ -328,7 +328,7 @@ export const SettingsView: React.FC = () => {
                 type="url"
                 value={config.bridgeUrl}
                 onChange={(e) => setConfig({ ...config, bridgeUrl: e.target.value })}
-                placeholder="https://aurea-whatsapp-bot.onrender.com"
+                placeholder="https://your-domain.ngrok-free.app"
                 dir="ltr"
                 className="w-full pl-10 pr-3.5 py-2.5 text-sm font-mono rounded-xl border border-stone-300 focus:border-[#0f3b2c] focus:ring-1 focus:ring-[#0f3b2c] outline-none"
               />
@@ -342,59 +342,46 @@ export const SettingsView: React.FC = () => {
               className="px-5 py-2.5 text-xs font-bold rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer bg-[#0f3b2c] hover:bg-[#164e3b] text-[#fbf8ee] shadow-sm shrink-0 disabled:opacity-50"
             >
               <Wifi className={`w-4 h-4 ${isTesting ? 'animate-pulse' : ''}`} />
-              فحص الاتصال بالسيرفر
+              فحص الاتصال بالجسر
             </button>
-
-            {config.bridgeUrl && config.bridgeUrl.trim().length > 7 && (
-              <a
-                href={`${config.bridgeUrl.trim().replace(/\/+$/, '')}/qr`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-4 py-2.5 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-300 shrink-0 shadow-2xs"
-                title="فتح شاشة مسح كود الواتساب QR"
-              >
-                <ExternalLink className="w-3.5 h-3.5" />
-                شاشة مسح QR Code
-              </a>
-            )}
           </div>
           <p className="text-xs text-stone-500">
-            * رابط السيرفر السحابي الدائم الذي يمنحه لك موقع Render مجاناً، ولا يتغير إطلاقاً حتى لو أغلقت جهاز العيادة.
+            * هذا الرابط الثابت تضعه هنا مرة واحدة فقط للأبد، وسيعمل معك تلقائياً في كل مرة تفتح فيها جهاز العيادة.
           </p>
         </div>
       </div>
 
-      {/* ── Step-by-Step Render Tutorial ───────────────────────────── */}
+      {/* ── Step-by-Step Ngrok Tutorial ───────────────────────────── */}
       <div className="bg-stone-50 rounded-2xl p-6 border border-stone-200/80 space-y-4">
         <div className="flex items-center gap-2">
           <ShieldCheck className="w-5 h-5 text-emerald-700" />
           <h3 className="font-extrabold text-[#0f3b2c] text-sm">
-            طريقة إطلاق سيرفر الواتساب السحابي على Render في 3 دقائق مجاناً (100% Free):
+            طريقة تشغيل رابط Ngrok الثابت في 3 خطوات بسيطة (مجاناً 100% وبدون كارت بنكي):
           </h3>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
           <div className="bg-white p-4 rounded-xl border border-stone-200 shadow-2xs space-y-2">
             <div className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-900 font-black flex items-center justify-center">1</div>
-            <div className="font-bold text-stone-800">التسجيل وربط المستودع</div>
+            <div className="font-bold text-stone-800">التسجيل بجوجل والحصول على الرمز</div>
             <p className="text-stone-600 leading-relaxed">
-              ادخل على موقع <a href="https://render.com" target="_blank" rel="noreferrer" className="text-emerald-700 font-bold underline">Render.com</a> وسجل بحساب GitHub الخاص بك، ثم اختر <strong>New +</strong> ثم <strong>Web Service</strong> واختر مستودع <code className="bg-stone-100 px-1 py-0.5 rounded font-mono font-bold text-emerald-800">aurea-clinic-erp</code>.
+              ادخل على <a href="https://ngrok.com" target="_blank" rel="noreferrer" className="text-emerald-700 font-bold underline">ngrok.com</a> وسجل بحساب جيميل الخاص بك بالضغط على <strong>Sign up with Google</strong> (دون إدخال أي كارت).
             </p>
           </div>
 
           <div className="bg-white p-4 rounded-xl border border-stone-200 shadow-2xs space-y-2">
             <div className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-900 font-black flex items-center justify-center">2</div>
-            <div className="font-bold text-stone-800">اختيار Dockerfile والبدء</div>
+            <div className="font-bold text-stone-800">نسخ Authtoken والرابط الثابت</div>
             <p className="text-stone-600 leading-relaxed">
-              في إعدادات السيرفر، اختر Runtime نوع <strong>Docker</strong> أو أدخل مسار الملف: <code className="bg-stone-100 px-1 py-0.5 rounded font-mono text-emerald-800">whatsapp-service/Dockerfile</code> واضغط <strong>Create Web Service</strong> (الخطة المجانية Free).
+              من القائمة انسخ الـ <strong>Authtoken</strong>، ومن صفحة <strong>Domains</strong> انسخ رابطك الثابت المجاني (<code className="bg-stone-100 px-1 py-0.5 rounded font-mono text-emerald-800">xxx.ngrok-free.app</code>)، وضعهما في ملف <code className="bg-stone-100 px-1 py-0.5 rounded font-mono font-bold text-emerald-800">ngrok_config.json</code>.
             </p>
           </div>
 
           <div className="bg-white p-4 rounded-xl border border-stone-200 shadow-2xs space-y-2">
             <div className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-900 font-black flex items-center justify-center">3</div>
-            <div className="font-bold text-stone-800">مسح كود الواتساب مرة واحدة</div>
+            <div className="font-bold text-stone-800">التشغيل والحفظ مرة واحدة للأبد</div>
             <p className="text-stone-600 leading-relaxed">
-              انسخ الرابط الذي يمنحه لك Render وضعه هنا، واضغط على زر <strong>شاشة مسح QR Code</strong> وامسحه بهاتفك. سيظل البوت شغالاً في السحاب 24/7 للأبد!
+              شغل ملف <code className="bg-stone-100 px-1 py-0.5 rounded font-mono font-bold text-emerald-800">Start_Clinic_With_Ngrok.bat</code>، وضع الرابط في الخانة بالأعلى واضغط <strong>حفظ التغييرات</strong>. مبروك! الرابط أصبح ثابتاً دائماً!
             </p>
           </div>
         </div>
