@@ -254,7 +254,7 @@ export const SettingsView: React.FC = () => {
             </div>
           </div>
 
-          {/* Card 2: Local Bridge (Option 1) */}
+          {/* Card 2: Render 24/7 Cloud Bot (Option 3 - Recommended) */}
           <div 
             onClick={() => setConfig({ ...config, mode: 'bridge' })}
             className={`p-5 rounded-2xl border-2 transition-all cursor-pointer flex flex-col justify-between ${
@@ -265,19 +265,19 @@ export const SettingsView: React.FC = () => {
           >
             <div>
               <div className="flex items-center justify-between mb-3">
-                <span className="p-2.5 rounded-xl bg-amber-100 text-amber-800">
+                <span className="p-2.5 rounded-xl bg-emerald-100 text-[#0f3b2c]">
                   <Server className="w-5 h-5" />
                 </span>
-                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-900">
-                  الخيار الأول (مجاني 100%)
+                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900">
+                  الحل 3 (سحابي 24/7 دائم)
                 </span>
               </div>
-              <h3 className="font-extrabold text-base text-[#0f3b2c] mb-1.5">جسر العيادة السحابي (Bridge)</h3>
+              <h3 className="font-extrabold text-base text-[#0f3b2c] mb-1.5">بوت Render السحابي الدائم (Cloud 24/7)</h3>
               <p className="text-xs text-stone-600 leading-relaxed">
-                تستخدمه عندما تكون شغالاً أونلاين على Vercel وتريد إرسال صور الفواتير تلقائياً عبر جهاز الاستقبال بالعيادة دون رفع يدوي.
+                سيرفر واتساب سحابي مستقل يعمل 24 ساعة على Render مجاناً. لا يعتمد على فتح جهاز العيادة إطلاقاً ورابطه ثابت للأبد.
               </p>
             </div>
-            <div className="mt-4 pt-3 border-t border-stone-100 flex items-center gap-2 text-xs font-bold text-amber-900">
+            <div className="mt-4 pt-3 border-t border-stone-100 flex items-center gap-2 text-xs font-bold text-[#0f3b2c]">
               <span className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center ${config.mode === 'bridge' ? 'border-[#0f3b2c]' : 'border-stone-400'}`}>
                 {config.mode === 'bridge' && <span className="w-2 h-2 rounded-full bg-[#0f3b2c]" />}
               </span>
@@ -320,7 +320,7 @@ export const SettingsView: React.FC = () => {
         {/* ── Bridge URL Configuration Input ─────────────────────────── */}
         <div className="pt-4 border-t border-stone-100 space-y-3">
           <label className="block text-sm font-extrabold text-[#0f3b2c]">
-            رابط جسر العيادة السحابي (Clinic Bridge Tunnel URL):
+            رابط خادم الواتساب السحابي (Render 24/7 Cloud Bot URL):
           </label>
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
             <div className="relative flex-1">
@@ -328,7 +328,7 @@ export const SettingsView: React.FC = () => {
                 type="url"
                 value={config.bridgeUrl}
                 onChange={(e) => setConfig({ ...config, bridgeUrl: e.target.value })}
-                placeholder="https://your-tunnel.trycloudflare.com أو https://your-subdomain.loca.lt"
+                placeholder="https://aurea-whatsapp-bot.onrender.com"
                 dir="ltr"
                 className="w-full pl-10 pr-3.5 py-2.5 text-sm font-mono rounded-xl border border-stone-300 focus:border-[#0f3b2c] focus:ring-1 focus:ring-[#0f3b2c] outline-none"
               />
@@ -342,57 +342,59 @@ export const SettingsView: React.FC = () => {
               className="px-5 py-2.5 text-xs font-bold rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer bg-[#0f3b2c] hover:bg-[#164e3b] text-[#fbf8ee] shadow-sm shrink-0 disabled:opacity-50"
             >
               <Wifi className={`w-4 h-4 ${isTesting ? 'animate-pulse' : ''}`} />
-              فحص الاتصال بالجسر
+              فحص الاتصال بالسيرفر
             </button>
+
+            {config.bridgeUrl && config.bridgeUrl.trim().length > 7 && (
+              <a
+                href={`${config.bridgeUrl.trim().replace(/\/+$/, '')}/qr`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-4 py-2.5 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-300 shrink-0 shadow-2xs"
+                title="فتح شاشة مسح كود الواتساب QR"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                شاشة مسح QR Code
+              </a>
+            )}
           </div>
           <p className="text-xs text-stone-500">
-            * هذا الرابط هو الذي يولده ملف النفق المجاني على جهاز الاستقبال بالعيادة لربطه مع موقع Vercel.
+            * رابط السيرفر السحابي الدائم الذي يمنحه لك موقع Render مجاناً، ولا يتغير إطلاقاً حتى لو أغلقت جهاز العيادة.
           </p>
         </div>
       </div>
 
-      {/* ── Step-by-Step Option 1 Tutorial ───────────────────────────── */}
+      {/* ── Step-by-Step Render Tutorial ───────────────────────────── */}
       <div className="bg-stone-50 rounded-2xl p-6 border border-stone-200/80 space-y-4">
         <div className="flex items-center gap-2">
           <ShieldCheck className="w-5 h-5 text-emerald-700" />
           <h3 className="font-extrabold text-[#0f3b2c] text-sm">
-            دليل تشغيل النفق المجاني على جهاز العيادة في 3 خطوات (100% Free):
+            طريقة إطلاق سيرفر الواتساب السحابي على Render في 3 دقائق مجاناً (100% Free):
           </h3>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
           <div className="bg-white p-4 rounded-xl border border-stone-200 shadow-2xs space-y-2">
             <div className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-900 font-black flex items-center justify-center">1</div>
-            <div className="font-bold text-stone-800">تشغيل نفق العيادة</div>
+            <div className="font-bold text-stone-800">التسجيل وربط المستودع</div>
             <p className="text-stone-600 leading-relaxed">
-              على جهاز العيادة، شغل الملف الجاهز <code className="bg-stone-100 px-1.5 py-0.5 rounded font-mono font-bold text-emerald-800">Start_Clinic_With_Tunnel.bat</code> أو افتح موجه الأوامر واكتب:
+              ادخل على موقع <a href="https://render.com" target="_blank" rel="noreferrer" className="text-emerald-700 font-bold underline">Render.com</a> وسجل بحساب GitHub الخاص بك، ثم اختر <strong>New +</strong> ثم <strong>Web Service</strong> واختر مستودع <code className="bg-stone-100 px-1 py-0.5 rounded font-mono font-bold text-emerald-800">aurea-clinic-erp</code>.
             </p>
-            <div className="flex items-center justify-between bg-stone-900 text-emerald-400 p-2 rounded-lg font-mono text-[11px]" dir="ltr">
-              <span>npx cloudflared tunnel --url http://localhost:5000</span>
-              <button 
-                type="button" 
-                onClick={() => copyToClipboard('npx cloudflared tunnel --url http://localhost:5000')}
-                className="hover:text-white transition-colors"
-                title="نسخ الأمر"
-              >
-                <Copy className="w-3.5 h-3.5" />
-              </button>
-            </div>
           </div>
 
           <div className="bg-white p-4 rounded-xl border border-stone-200 shadow-2xs space-y-2">
             <div className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-900 font-black flex items-center justify-center">2</div>
-            <div className="font-bold text-stone-800">نسخ الرابط المولد</div>
+            <div className="font-bold text-stone-800">اختيار Dockerfile والبدء</div>
             <p className="text-stone-600 leading-relaxed">
-              سيظهر لك رابط آمن يبدأ بـ <code className="bg-stone-100 px-1 py-0.5 rounded font-mono text-emerald-800">https://...trycloudflare.com</code>. انسخ هذا الرابط وضعه في خانة رابط الجسر بالأعلى.
+              في إعدادات السيرفر، اختر Runtime نوع <strong>Docker</strong> أو أدخل مسار الملف: <code className="bg-stone-100 px-1 py-0.5 rounded font-mono text-emerald-800">whatsapp-service/Dockerfile</code> واضغط <strong>Create Web Service</strong> (الخطة المجانية Free).
             </p>
           </div>
 
           <div className="bg-white p-4 rounded-xl border border-stone-200 shadow-2xs space-y-2">
             <div className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-900 font-black flex items-center justify-center">3</div>
-            <div className="font-bold text-stone-800">حفظ الإعدادات والتجربة</div>
+            <div className="font-bold text-stone-800">مسح كود الواتساب مرة واحدة</div>
             <p className="text-stone-600 leading-relaxed">
-              اضغط على "فحص الاتصال" ثم "حفظ الإعدادات". الآن أي إرسال من النسخة الأونلاين Vercel سيرسل صورة الفاتورة تلقائياً 100% مجاناً عبر بوت جهاز العيادة!
+              انسخ الرابط الذي يمنحه لك Render وضعه هنا، واضغط على زر <strong>شاشة مسح QR Code</strong> وامسحه بهاتفك. سيظل البوت شغالاً في السحاب 24/7 للأبد!
             </p>
           </div>
         </div>

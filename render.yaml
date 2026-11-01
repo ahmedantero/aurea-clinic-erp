@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: aurea-whatsapp-bot
+    runtime: docker
+    dockerfilePath: ./whatsapp-service/Dockerfile
+    dockerContext: ./whatsapp-service
+    plan: free
+    region: frankfurt
+    autoDeploy: true
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: CLINIC_MAP_URL
+        value: https://maps.google.com/?q=Aurea+Clinic
